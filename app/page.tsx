@@ -1,3 +1,4 @@
+'use client'
 import Image from 'next/image'
 import abacus from "./assets/abacus.png"
 import WorkflowVisualizer from './components/WorkflowVisualizer'
