@@ -1,8 +1,51 @@
 import Image from 'next/image'
 import abacus from "./assets/abacus.png"
 import WorkflowVisualizer from './components/WorkflowVisualizer'
+import { useState } from 'react';
 
 export default function Home() {
+  const [file, setFile] = useState<File | null>(null);
+  const [workflowData, setWorkflowData] = useState([]);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
+    }
+  };
+  
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!file) return;
+  
+    const formData = new FormData();
+    formData.append('screenshot', file);
+  
+    try {
+      const response = await fetch('http://localhost:5001/api/upload-screenshot', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+  
+      const data = await response.json();
+      const extractedWorkflow = data.actions.map((action: any, index: number) => ({
+        id: (index + 1).toString(),
+        name: action.app,
+        type: index === 0 ? 'current' : 'alternative',
+        cost: '$10', // You might want to replace this with actual data
+        efficiency: 'Moderate', // You might want to replace this with actual data
+      }));
+      setWorkflowData(extractedWorkflow);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+
+  
   return (
     <div className="flex flex-col items-center justify-between min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-inter)] bg-white text-gray-800">
       {/* Header */}
@@ -34,7 +77,7 @@ export default function Home() {
           </ol>
 
           {/* Import Screenshot Form */}
-          <form className="mt-6 space-y-4">
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="screenshot" className="block text-sm font-medium text-gray-700 mb-2">
                 Upload Your Workflow Screenshot
@@ -44,6 +87,7 @@ export default function Home() {
                 id="screenshot"
                 name="screenshot"
                 accept="image/*"
+                onChange={handleFileChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -57,7 +101,7 @@ export default function Home() {
         </section>
         {/* WorkflowVisualizer Component */}
         <div className="w-full bg-gray-50 rounded-lg shadow-md p-6">
-          <WorkflowVisualizer />
+          <WorkflowVisualizer workflowData={workflowData} />
         </div>
       </main>
 
