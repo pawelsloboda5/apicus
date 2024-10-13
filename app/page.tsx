@@ -26,7 +26,7 @@ export default function Home() {
     formData.append('screenshot', file);
   
     try {
-      const response = await fetch('http://localhost:5001/api/upload-screenshot', {
+      const response = await fetch('https://apicus-b10ab9ec0765.herokuapp.com/api/upload-screenshot', {
         method: 'POST',
         body: formData,
       });
