@@ -118,75 +118,79 @@ const WorkflowVisualizer = ({ workflowData = sampleWorkflow }: { workflowData?: 
   return (
     <div className="p-8 w-full mx-auto" style={{ minHeight: `${workflowData.length * 200 + 100}px` }}>
       <h2 className="text-3xl font-bold text-center mb-8">Workflow Visualization</h2>
-      <div className="flex flex-col items-center gap-4">
-        {workflowData.map((node, index) => (
-          <React.Fragment key={node.id}>
-            <motion.div
-              className={`p-6 border rounded-lg shadow-md cursor-pointer w-64 ${
-                node.type === 'current' ? 'bg-green-100' : 'bg-yellow-100'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              onClick={() => handleNodeClick(node)}
-            >
-              <h3 className="text-xl font-semibold mb-2">{node.name}</h3>
-              <p>Cost: {node.cost}</p>
-              <p>Efficiency: {node.efficiency}</p>
-            </motion.div>
-            <AnimatePresence>
-              {selectedNode && selectedNode.id === node.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full"
-                >
-                  {renderGhostNodes(node)}
-                  <motion.div 
-                    className="mt-8 p-6 border rounded-lg shadow-md bg-white"
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -20, opacity: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
+      {workflowData.length === 0 ? (
+        <p className="text-center text-gray-500">Upload a screenshot to visualize your workflow.</p>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          {workflowData.map((node, index) => (
+            <React.Fragment key={node.id}>
+              <motion.div
+                className={`p-6 border rounded-lg shadow-md cursor-pointer w-64 ${
+                  node.type === 'current' ? 'bg-green-100' : 'bg-yellow-100'
+                }`}
+                whileHover={{ scale: 1.05 }}
+                onClick={() => handleNodeClick(node)}
+              >
+                <h3 className="text-xl font-semibold mb-2">{node.name}</h3>
+                <p>Cost: {node.cost}</p>
+                <p>Efficiency: {node.efficiency}</p>
+              </motion.div>
+              <AnimatePresence>
+                {selectedNode && selectedNode.id === node.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full"
                   >
-                    <div className="flex gap-8">
-                      <div className="w-1/2">
-                        {renderNodeDetails(selectedNode)}
+                    {renderGhostNodes(node)}
+                    <motion.div 
+                      className="mt-8 p-6 border rounded-lg shadow-md bg-white"
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                    >
+                      <div className="flex gap-8">
+                        <div className="w-1/2">
+                          {renderNodeDetails(selectedNode)}
+                        </div>
+                        <div className={`w-1/2 p-4 rounded-lg transition-all duration-300
+                          ${selectedGhostNode ? 'bg-blue-50 shadow-lg ring-2 ring-blue-400 ring-opacity-50' : ''}
+                        `}>
+                          {selectedGhostNode ? renderNodeDetails(selectedGhostNode) : renderNodeDetails(workflowData.find(n => n.type === 'alternative' && n.id !== selectedNode.id) || selectedNode)}
+                        </div>
                       </div>
-                      <div className={`w-1/2 p-4 rounded-lg transition-all duration-300
-                        ${selectedGhostNode ? 'bg-blue-50 shadow-lg ring-2 ring-blue-400 ring-opacity-50' : ''}
-                      `}>
-                        {selectedGhostNode ? renderNodeDetails(selectedGhostNode) : renderNodeDetails(workflowData.find(n => n.type === 'alternative' && n.id !== selectedNode.id) || selectedNode)}
+                      <div className="mt-8 bg-gray-100 p-4 rounded-lg">
+                        <h3 className="font-semibold mb-2">Optimization Suggestions:</h3>
+                        <ul className="list-disc list-inside">
+                          <li>Implement caching to reduce API calls</li>
+                          <li>Optimize query parameters for faster response times</li>
+                          <li>Consider bulk operations for data processing efficiency</li>
+                        </ul>
                       </div>
-                    </div>
-                    <div className="mt-8 bg-gray-100 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-2">Optimization Suggestions:</h3>
-                      <ul className="list-disc list-inside">
-                        <li>Implement caching to reduce API calls</li>
-                        <li>Optimize query parameters for faster response times</li>
-                        <li>Consider bulk operations for data processing efficiency</li>
-                      </ul>
-                    </div>
+                    </motion.div>
                   </motion.div>
-                </motion.div>
+                )}
+              </AnimatePresence>
+              {index < workflowData.length - 1 && (
+                <div className="h-8 w-0.5 bg-gray-300 relative">
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-0 h-0 border-l-8 border-l-transparent border-t-8 border-t-gray-300 border-r-8 border-r-transparent" />
+                </div>
               )}
-            </AnimatePresence>
-            {index < workflowData.length - 1 && (
-              <div className="h-8 w-0.5 bg-gray-300 relative">
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-0 h-0 border-l-8 border-l-transparent border-t-8 border-t-gray-300 border-r-8 border-r-transparent" />
-              </div>
-            )}
-          </React.Fragment>
-        ))}
-        <motion.div
-          className="p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer w-64 flex items-center justify-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </motion.div>
-      </div>
+            </React.Fragment>
+          ))}
+          <motion.div
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer w-64 flex items-center justify-center"
+            whileHover={{ scale: 1.05 }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

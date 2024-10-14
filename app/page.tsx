@@ -4,39 +4,48 @@ import abacus from "./assets/abacus.png"
 import WorkflowVisualizer from './components/WorkflowVisualizer'
 import { useState } from 'react';
 
-interface Action {
-  app: string;
+interface WorkflowNode {
+  id: string;
+  name: string;
+  type: string;
+  cost: string;
+  efficiency: string;
 }
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
-  const [workflowData, setWorkflowData] = useState([]);
+  const [workflowData, setWorkflowData] = useState<WorkflowNode[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0]);
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) return;
-  
+
+    setIsLoading(true);
+    setError(null);
+
     const formData = new FormData();
     formData.append('screenshot', file);
-  
+
     try {
       const response = await fetch('https://apicus-b10ab9ec0765.herokuapp.com/api/upload-screenshot', {
         method: 'POST',
         body: formData,
       });
-  
+
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error('Failed to process screenshot');
       }
-  
+
       const data = await response.json();
-      const extractedWorkflow = data.actions.map((action: Action, index: number) => ({
+      const extractedWorkflow = data.actions.map((action: any, index: number) => ({
         id: (index + 1).toString(),
         name: action.app,
         type: index === 0 ? 'current' : 'alternative',
@@ -44,13 +53,14 @@ export default function Home() {
         efficiency: 'Moderate', // You might want to replace this with actual data
       }));
       setWorkflowData(extractedWorkflow);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      setError('Error processing screenshot. Please try again.');
+      console.error('Error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-
-  
   return (
     <div className="flex flex-col items-center justify-between min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-inter)] bg-white text-gray-800">
       {/* Header */}
@@ -69,8 +79,6 @@ export default function Home() {
           height={38}
           priority
         />
-
-        
 
         <section className="text-center sm:text-left w-full">
           <h2 className="text-2xl font-semibold mb-4">Get Started with APIcus</h2>
@@ -99,11 +107,14 @@ export default function Home() {
             <button
               type="submit"
               className="w-full sm:w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isLoading || !file}
             >
-              Analyze Workflow
+              {isLoading ? 'Processing...' : 'Analyze Workflow'}
             </button>
           </form>
+          {error && <p className="text-red-500 mt-2">{error}</p>}
         </section>
+
         {/* WorkflowVisualizer Component */}
         <div className="w-full bg-gray-50 rounded-lg shadow-md p-6">
           <WorkflowVisualizer workflowData={workflowData} />
