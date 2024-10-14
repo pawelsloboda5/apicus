@@ -12,6 +12,11 @@ interface WorkflowNode {
   efficiency: string;
 }
 
+interface Action {
+  app: string;
+  action: string;
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [workflowData, setWorkflowData] = useState<WorkflowNode[]>([]);
@@ -45,7 +50,7 @@ export default function Home() {
       }
 
       const data = await response.json();
-      const extractedWorkflow = data.actions.map((action: any, index: number) => ({
+      const extractedWorkflow = data.actions.map((action: Action, index: number) => ({
         id: (index + 1).toString(),
         name: action.app,
         type: index === 0 ? 'current' : 'alternative',
