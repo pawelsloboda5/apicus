@@ -23,12 +23,7 @@ export function Navbar() {
         </div>
 
         <nav className="ml-6 flex items-center space-x-4">
-          <Link href="/" className="text-sm font-medium text-slate-700 hover:text-slate-900">
-            Home
-          </Link>
-          <Link href="/pricing" className="text-sm font-medium text-slate-700 hover:text-slate-900">
-            Pricing
-          </Link>
+
         </nav>
 
         <div className="ml-auto flex items-center space-x-4">

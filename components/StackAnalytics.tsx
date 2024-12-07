@@ -1,3 +1,4 @@
+// components/StackAnalytics.tsx
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

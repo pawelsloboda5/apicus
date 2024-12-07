@@ -60,6 +60,7 @@ export interface Service {
       growth_trends?: string
     }
     competitive_positioning?: {
+      direct_competitors?: string[]
       competitive_advantages?: string[]
       competitive_disadvantages?: string[]
       market_position?: string

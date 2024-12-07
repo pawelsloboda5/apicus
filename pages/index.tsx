@@ -1,11 +1,16 @@
+// pages/index.tsx
 import { StackBuilder } from "@/components/StackBuilder"
+import { MobileStackBuilder } from "@/components/mobile/MobileStackBuilder"
+import { MobileLayout } from "@/components/layouts/MobileLayout"
 import clientPromise from "@/lib/mongodb"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Service } from "@/types/service"
+import{ TechStackSuggestions } from "@/components/TechStackSuggestions"
 
 interface HomeProps {
   services: Service[]
   error: string | null
+  isMobile: boolean
 }
 
 export async function getServerSideProps() {
@@ -38,19 +43,76 @@ export async function getServerSideProps() {
   }
 }
 
-export default function Home({ services = [], error }: HomeProps) {
+export default function Home({ services = [], error, isMobile }: HomeProps) {
   const [selectedServices, setSelectedServices] = useState<Service[]>([])
+  const [servicePlans, setServicePlans] = useState<Array<{
+    serviceId: string;
+    planIndex: number;
+  }>>([])
+ const [hasStarted, setHasStarted] = useState(false)
+
+  useEffect(() => {
+    const currentServiceIds = servicePlans.map(sp => sp.serviceId)
+    const newServices = selectedServices.filter(s => !currentServiceIds.includes(s._id))
+    
+    if (newServices.length > 0) {
+      setServicePlans(prev => [
+        ...prev,
+        ...newServices.map(s => ({ serviceId: s._id, planIndex: 0 }))
+      ])
+    }
+
+    setServicePlans(prev => 
+      prev.filter(sp => selectedServices.some(s => s._id === sp.serviceId))
+    )
+  }, [selectedServices])
 
   if (error) {
     return <div className="p-8 text-red-500">Error: {error}</div>
   }
 
+  if (!hasStarted) {
+    return (
+      <div className="max-w-2xl mx-auto p-8">
+        <TechStackSuggestions
+          availableServices={services}
+          onStackSelect={(stack) => {
+            setSelectedServices(stack)
+            setHasStarted(true)
+          }}
+        />
+      </div>
+    )
+  }
+
+  if (isMobile) {
+    return (
+      <MobileLayout 
+        title="Build Your Stack"
+        selectedServices={selectedServices}
+        servicePlans={servicePlans}
+        onServicesChange={setSelectedServices}
+        availableServices={services}
+      >
+        <MobileStackBuilder
+          availableServices={services}
+          selectedServices={selectedServices}
+          onServicesChange={setSelectedServices}
+          servicePlans={servicePlans}
+          onServicePlansChange={setServicePlans}
+        />
+      </MobileLayout>
+    )
+  }
+
   return (
     <div className="p-8 space-y-8">
-      <StackBuilder 
-        availableServices={services} 
+      <StackBuilder
+        availableServices={services}
         selectedServices={selectedServices}
         onServicesChange={setSelectedServices}
+        servicePlans={servicePlans}
+        setServicePlans={setServicePlans}
       />
     </div>
   )

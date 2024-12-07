@@ -1,3 +1,4 @@
+// components/StackBuilder.tsx
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -15,12 +16,21 @@ interface StackBuilderProps {
   availableServices: Service[]
   selectedServices: Service[]
   onServicesChange: (services: Service[]) => void
+  servicePlans: Array<{
+    serviceId: string;
+    planIndex: number;
+  }>;
+  setServicePlans: React.Dispatch<React.SetStateAction<Array<{
+    serviceId: string;
+    planIndex: number;
+  }>>>;
 }
 
 interface ServicePlanState {
   serviceId: string;
   planIndex: number;
 }
+
 
 const getLowestPrice = (service: Service) => {
   try {
@@ -42,12 +52,13 @@ const getLowestPrice = (service: Service) => {
 export function StackBuilder({ 
   availableServices, 
   selectedServices, 
-  onServicesChange 
+  onServicesChange, 
+  servicePlans, 
+  setServicePlans 
 }: StackBuilderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<SelectedService | null>(null)
-  const [servicePlans, setServicePlans] = useState<ServicePlanState[]>([])
 
   useEffect(() => {
     const currentServiceIds = servicePlans.map(sp => sp.serviceId)
@@ -63,7 +74,7 @@ export function StackBuilder({
     setServicePlans(prev => 
       prev.filter(sp => selectedServices.some(s => s._id === sp.serviceId))
     )
-  }, [selectedServices, servicePlans])
+  }, [selectedServices, setServicePlans])
 
   useEffect(() => {
     if (selectedServices.length > 0 && !selectedServiceForDetails) {
@@ -130,7 +141,9 @@ export function StackBuilder({
 
   const handleRemoveService = (serviceId: string) => {
     onServicesChange(selectedServices.filter(s => s._id !== serviceId))
-    setServicePlans(prev => prev.filter(sp => sp.serviceId !== serviceId))
+    setServicePlans(prev => 
+      prev.filter(sp => sp.serviceId !== serviceId)
+    )
     if (selectedServiceForDetails?._id === serviceId) {
       setSelectedServiceForDetails(null)
     }
