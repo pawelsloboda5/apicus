@@ -65,12 +65,6 @@ export function ServiceStackBuilder({
     onServicesChange(newServices)
   }
 
-  const handleServiceRemove = (serviceId: string) => {
-    const newServices = selectedServices.filter(s => s._id !== serviceId)
-    setSelectedServices(newServices)
-    onServicesChange(newServices)
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex gap-4">
