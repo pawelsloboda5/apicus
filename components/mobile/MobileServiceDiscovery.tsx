@@ -136,40 +136,48 @@ export function MobileServiceDiscovery({
             />
           </div>
 
-          <div className="flex gap-2">
-            <Select value={priceRange} onValueChange={(value: PriceRange) => setPriceRange(value)}>
-              <SelectTrigger className="w-[140px]">
-                <DollarSign className="h-4 w-4 mr-1" />
-                <SelectValue placeholder="Price Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Prices</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="1-50">$1 - $50</SelectItem>
-                <SelectItem value="51-200">$51 - $200</SelectItem>
-                <SelectItem value="201-500">$201 - $500</SelectItem>
-                <SelectItem value="500+">$500+</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex gap-2 flex-1 min-w-0">
+              <Select 
+                value={priceRange} 
+                onValueChange={(value: PriceRange) => setPriceRange(value)}
+              >
+                <SelectTrigger className="flex-1 min-w-[120px]">
+                  <DollarSign className="h-4 w-4 mr-1 shrink-0" />
+                  <SelectValue placeholder="Price Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Prices</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="1-50">$1 - $50</SelectItem>
+                  <SelectItem value="51-200">$51 - $200</SelectItem>
+                  <SelectItem value="201-500">$201 - $500</SelectItem>
+                  <SelectItem value="500+">$500+</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={category} onValueChange={(value: ServiceCategory) => setCategory(value)}>
-              <SelectTrigger className="w-[140px]">
-                <Server className="h-4 w-4 mr-1" />
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="hosting">Hosting</SelectItem>
-                <SelectItem value="database">Database</SelectItem>
-                <SelectItem value="analytics">Analytics</SelectItem>
-                <SelectItem value="monitoring">Monitoring</SelectItem>
-                <SelectItem value="security">Security</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select 
+                value={category} 
+                onValueChange={(value: ServiceCategory) => setCategory(value)}
+              >
+                <SelectTrigger className="flex-1 min-w-[120px]">
+                  <Server className="h-4 w-4 mr-1 shrink-0" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="hosting">Hosting</SelectItem>
+                  <SelectItem value="database">Database</SelectItem>
+                  <SelectItem value="analytics">Analytics</SelectItem>
+                  <SelectItem value="monitoring">Monitoring</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button 
               variant="outline" 
-              className="flex-1"
+              className="w-full sm:w-auto whitespace-nowrap"
               onClick={() => {
                 setPriceRange('all')
                 setCategory('all')
@@ -189,13 +197,13 @@ export function MobileServiceDiscovery({
                   <Badge 
                     key={feature} 
                     variant="secondary"
-                    className="text-xs pr-1 flex items-center gap-1"
+                    className="text-xs pr-1 flex items-center gap-1 max-w-full"
                   >
-                    {feature}
+                    <span className="truncate">{feature}</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-4 w-4 p-0 hover:bg-transparent"
+                      className="h-4 w-4 p-0 hover:bg-transparent shrink-0"
                       onClick={() => setSelectedFeatures(prev => 
                         prev.filter(f => f !== feature)
                       )}
