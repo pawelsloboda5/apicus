@@ -1,12 +1,20 @@
 // components/mobile/MobileServiceDetails.tsx
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle2, Zap, DollarSign, Box, Server, Shield, TrendingUp, Briefcase, Target, ThumbsUp, ThumbsDown } from "lucide-react"
+import { 
+  CheckCircle2, 
+  Zap, 
+  Box, 
+  Server, 
+  Shield, 
+  TrendingUp, 
+  Briefcase, 
+  Target 
+} from "lucide-react"
 import { Service } from "@/types/service"
 import { UsageBasedPricing } from "@/components/pricing/UsageBasedPricing"
 
@@ -18,8 +26,6 @@ interface MobileServiceDetailsProps {
 
 export function MobileServiceDetails({ service, selectedPlanIndex, onPlanChange }: MobileServiceDetailsProps) {
   const currentPlan = service.enhanced_data.plans[selectedPlanIndex]
-  const hasUsageComponents = currentPlan.pricing.usage_components && 
-    currentPlan.pricing.usage_components.length > 0
 
   return (
     <Card className="space-y-4 p-4">

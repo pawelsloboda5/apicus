@@ -8,9 +8,29 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Sector
+  LegendProps
 } from "recharts"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+
+interface TooltipProps {
+  active?: boolean
+  payload?: Array<{
+    payload: {
+      name: string
+      value: number
+      tooltip?: string
+    }
+  }>
+}
+
+interface CustomLabelProps {
+  cx: number
+  cy: number
+  midAngle: number
+  innerRadius: number
+  outerRadius: number
+  percent: number
+  value: number
+}
 
 interface CostDistributionProps {
   data: Array<{
@@ -18,6 +38,14 @@ interface CostDistributionProps {
     value: number
   }>
   maxDisplayedServices?: number
+}
+
+interface LegendEntry {
+  value: any
+  payload: {
+    value: number
+    name: string
+  }
 }
 
 export function CostDistributionPie({ 
@@ -40,10 +68,7 @@ export function CostDistributionPie({
       return data
     }
 
-    // Sort by value in descending order
     const sortedData = [...data].sort((a, b) => b.value - a.value)
-    
-    // Take top services and combine the rest
     const topServices = sortedData.slice(0, maxDisplayedServices - 1)
     const otherServices = sortedData.slice(maxDisplayedServices - 1)
     
@@ -60,7 +85,7 @@ export function CostDistributionPie({
     ]
   }, [data, maxDisplayedServices])
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps) => {
     if (!active || !payload?.[0]) return null
 
     const data = payload[0].payload
@@ -83,9 +108,8 @@ export function CostDistributionPie({
     innerRadius,
     outerRadius,
     percent,
-    name,
     value
-  }: any) => {
+  }: CustomLabelProps) => {
     const RADIAN = Math.PI / 180
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -134,9 +158,9 @@ export function CostDistributionPie({
               layout="horizontal" 
               align="center"
               verticalAlign="bottom"
-              formatter={(value, entry: any) => (
+              formatter={(value, entry) => (
                 <span className="text-xs">
-                  {value} (${entry.payload.value})
+                  {value} (${entry.payload?.value ?? 0})
                 </span>
               )}
             />

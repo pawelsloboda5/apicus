@@ -26,12 +26,6 @@ interface StackBuilderProps {
   }>>>;
 }
 
-interface ServicePlanState {
-  serviceId: string;
-  planIndex: number;
-}
-
-
 const getLowestPrice = (service: Service) => {
   try {
     if (!service?.enhanced_data?.plans?.length) {

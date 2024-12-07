@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { Service } from "@/types/service"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,15 +17,14 @@ import {
 } from "@/components/ui/select"
 import {
   Search,
-  Filter,
+  Plus,
+  Tag,
   DollarSign,
+  X,
   Zap,
   Server,
   Shield,
-  Users,
-  Plus,
-  Tag,
-  X
+  Users
 } from "lucide-react"
 
 interface MobileServiceDiscoveryProps {
@@ -37,6 +36,21 @@ interface MobileServiceDiscoveryProps {
 type PriceRange = 'all' | 'free' | '1-50' | '51-200' | '201-500' | '500+'
 type ServiceCategory = 'all' | 'hosting' | 'database' | 'analytics' | 'monitoring' | 'security'
 
+const getCategoryIcon = (type: string) => {
+  switch (type.toLowerCase()) {
+    case 'hosting':
+      return <Server className="h-4 w-4 text-blue-500" />
+    case 'security':
+      return <Shield className="h-4 w-4 text-green-500" />
+    case 'analytics':
+      return <Zap className="h-4 w-4 text-yellow-500" />
+    case 'collaboration':
+      return <Users className="h-4 w-4 text-purple-500" />
+    default:
+      return null
+  }
+}
+
 export function MobileServiceDiscovery({
   availableServices,
   selectedServices,
@@ -44,7 +58,7 @@ export function MobileServiceDiscovery({
 }: MobileServiceDiscoveryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [priceRange, setPriceRange] = useState<PriceRange>('all')
-  const [category, setCategory] = useState<ServiceCategory>('all')
+  const [category, _setCategory] = useState<ServiceCategory>('all')
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
 
   // Extract unique features from all services
@@ -136,7 +150,7 @@ export function MobileServiceDiscovery({
               className="flex-1"
               onClick={() => {
                 setPriceRange('all')
-                setCategory('all')
+                _setCategory('all')
                 setSelectedFeatures([])
                 setSearchQuery("")
               }}
@@ -190,15 +204,20 @@ export function MobileServiceDiscovery({
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start">
                       <div className="space-y-2">
-                        <h3 className="font-medium">{service.metadata.service_name}</h3>
+                        <div className="flex items-center gap-2">
+                          {getCategoryIcon(service.metadata.pricing_types[0])}
+                          <h3 className="font-medium">{service.metadata.service_name}</h3>
+                        </div>
                         <div className="flex flex-wrap gap-1">
                           {service.metadata.pricing_types.map(type => (
-                            <Badge key={type} variant="secondary" className="text-xs">
-                              {type}
+                            <Badge key={type} variant="secondary" className="text-xs flex items-center gap-1">
+                              {getCategoryIcon(type)}
+                              <span>{type}</span>
                             </Badge>
                           ))}
                         </div>
-                        <div className="text-sm text-slate-600">
+                        <div className="text-sm text-slate-600 flex items-center gap-1">
+                          <DollarSign className="h-4 w-4 text-green-500" />
                           From ${service.enhanced_data.plans[0]?.pricing?.monthly?.base_price ?? 0}/mo
                         </div>
                       </div>
@@ -239,7 +258,7 @@ export function MobileServiceDiscovery({
                 <Button
                   key={feature}
                   variant={selectedFeatures.includes(feature) ? "default" : "outline"}
-                  className="w-full justify-start"
+                  className="w-full justify-start group hover:bg-slate-100"
                   onClick={() => {
                     setSelectedFeatures(prev =>
                       prev.includes(feature)
@@ -248,7 +267,11 @@ export function MobileServiceDiscovery({
                     )
                   }}
                 >
-                  <Tag className="h-4 w-4 mr-2" />
+                  <Zap className={`h-4 w-4 mr-2 ${
+                    selectedFeatures.includes(feature) 
+                      ? 'text-white' 
+                      : 'text-yellow-500 group-hover:text-yellow-600'
+                  }`} />
                   {feature}
                 </Button>
               ))}

@@ -19,20 +19,13 @@ import {
   Users2
 } from "lucide-react"
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer,
-  Legend
+  ResponsiveContainer
 } from "recharts"
-import { MobileStackAnalytics } from "./MobileStackAnalytics"
 import { CostDistributionPie } from "@/components/charts/CostDistributionPie"
 import { Badge } from "@/components/ui/badge"
 
@@ -71,9 +64,6 @@ export function MobileAnalytics({ services, servicePlans }: MobileAnalyticsProps
       value: plan.pricing?.monthly?.base_price ?? 0
     }
   })
-
-  // Colors for pie chart
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']
 
   return (
     <div className="space-y-4 pb-16">
