@@ -18,7 +18,6 @@ import {
 import {
   Search,
   Plus,
-  Tag,
   DollarSign,
   X,
   Zap,
@@ -58,7 +57,6 @@ export function MobileServiceDiscovery({
 }: MobileServiceDiscoveryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [priceRange, setPriceRange] = useState<PriceRange>('all')
-  const [category, _setCategory] = useState<ServiceCategory>('all')
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
 
   // Extract unique features from all services
@@ -150,7 +148,6 @@ export function MobileServiceDiscovery({
               className="flex-1"
               onClick={() => {
                 setPriceRange('all')
-                _setCategory('all')
                 setSelectedFeatures([])
                 setSearchQuery("")
               }}

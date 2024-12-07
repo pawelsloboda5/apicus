@@ -7,8 +7,7 @@ import {
   Cell,
   Tooltip,
   Legend,
-  ResponsiveContainer,
-  LegendProps
+  ResponsiveContainer
 } from "recharts"
 
 interface TooltipProps {
@@ -38,14 +37,6 @@ interface CostDistributionProps {
     value: number
   }>
   maxDisplayedServices?: number
-}
-
-interface LegendEntry {
-  value: any
-  payload: {
-    value: number
-    name: string
-  }
 }
 
 export function CostDistributionPie({ 
