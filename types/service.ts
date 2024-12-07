@@ -11,6 +11,7 @@ export interface Service {
     }
     plans: Array<{
       name: string
+      isFreeTier?: boolean
       pricing: {
         monthly: {
           base_price: number

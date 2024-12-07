@@ -11,7 +11,6 @@ import {
   Shield, 
   Zap,
   CheckCircle2,
-  ChevronDown,
   Target, 
   TrendingUp, 
   ThumbsUp, 
@@ -19,7 +18,6 @@ import {
   Briefcase,
   BarChart3
 } from "lucide-react"
-import { useState } from "react"
 import {
   Select,
   SelectContent,
@@ -33,18 +31,14 @@ interface ServiceDetailsProps {
   service: Service
   selectedPlanIndex: number
   onPlanChange: (index: number) => void
-  onClose?: () => void
 }
 
 export function ServiceDetails({ 
   service, 
   selectedPlanIndex, 
   onPlanChange,
-  onClose 
 }: ServiceDetailsProps) {
   const currentPlan = service.enhanced_data.plans[selectedPlanIndex]
-  const marketInsights = service.enhanced_data.market_insights
-  const competitivePositioning = service.enhanced_data.competitive_positioning
 
   return (
     <Card className="mt-6">
@@ -67,7 +61,10 @@ export function ServiceDetails({
               <SelectContent>
                 {service.enhanced_data.plans.map((plan, index) => (
                   <SelectItem key={plan.name} value={index.toString()}>
-                    {plan.name} - ${plan.pricing.monthly.base_price}/mo
+                    {plan.name}
+                    {!plan.isFreeTier && plan.pricing?.monthly?.base_price 
+                      ? ` - $${plan.pricing.monthly.base_price}/mo` 
+                      : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -103,8 +100,15 @@ export function ServiceDetails({
                     <div className="flex justify-between">
                       <span className="text-sm text-slate-600">Base Price</span>
                       <div className="text-2xl font-bold font-mono">
-                        ${currentPlan.pricing.monthly.base_price}
-                        <span className="text-sm font-normal text-slate-500">/mo</span>
+                        {currentPlan.name.toLowerCase() === 'free' 
+                          ? 'Free'
+                          : currentPlan.pricing?.monthly?.base_price 
+                            ? <>
+                                ${currentPlan.pricing.monthly.base_price}
+                                <span className="text-sm font-normal text-slate-500">/mo</span>
+                              </>
+                            : 'N/A'
+                        }
                       </div>
                     </div>
                     {currentPlan.pricing.annual && (

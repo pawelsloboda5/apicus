@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Plus, X, ArrowRight, DollarSign, Zap, Search } from "lucide-react"
-import { ServiceCard } from "./ServiceCard"
+import { Plus, X, DollarSign, Zap, Search } from "lucide-react"
 import { ServiceDetails } from "./ServiceDetails"
 import { Badge } from "@/components/ui/badge"
 import { StackAnalytics } from "./StackAnalytics"
@@ -25,7 +24,9 @@ interface ServicePlanState {
 
 const getLowestPrice = (service: Service) => {
   try {
-    if (!service?.enhanced_data?.plans?.length) return 0;
+    if (!service?.enhanced_data?.plans?.length) {
+      return 0;
+    }
     
     const prices = service.enhanced_data.plans
       .filter(plan => plan?.pricing?.monthly?.base_price)
@@ -62,7 +63,7 @@ export function StackBuilder({
     setServicePlans(prev => 
       prev.filter(sp => selectedServices.some(s => s._id === sp.serviceId))
     )
-  }, [selectedServices])
+  }, [selectedServices, servicePlans])
 
   useEffect(() => {
     if (selectedServices.length > 0 && !selectedServiceForDetails) {
@@ -78,15 +79,19 @@ export function StackBuilder({
   }, [selectedServices, selectedServiceForDetails, servicePlans])
 
   const getServicePrice = (service: Service) => {
-    const planState = servicePlans.find(sp => sp.serviceId === service._id)
-    return service.enhanced_data.plans[planState?.planIndex || 0]?.pricing.monthly.base_price || 0
-  }
+    try {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      const plan = service.enhanced_data.plans[planState?.planIndex || 0]
+      return plan?.pricing?.monthly?.base_price || null;
+    } catch (error) {
+      console.error('Error calculating service price:', error);
+      return null;
+    }
+  };
 
   const totalMonthlyCost = selectedServices.reduce((total, service) => {
-    const planState = servicePlans.find(sp => sp.serviceId === service._id)
-    const planIndex = planState?.planIndex || 0
     const price = getServicePrice(service)
-    return total + price
+    return total + (price ?? 0)
   }, 0)
 
   const filteredServices = useMemo(() => {
@@ -201,7 +206,12 @@ export function StackBuilder({
                       <div className="flex items-center gap-3">
                         <div className="font-medium">{service.metadata.service_name}</div>
                         <div className="text-sm text-slate-600">
-                          ${price}/mo
+                          {service.enhanced_data.plans[planIndex].name.toLowerCase() === 'free' 
+                            ? '' 
+                            : price !== null 
+                              ? `$${price}/mo` 
+                              : 'N/A'
+                          }
                         </div>
                         <div className="text-xs text-slate-500">
                           ({service.enhanced_data.plans[planIndex].name})
@@ -250,7 +260,6 @@ export function StackBuilder({
               service={selectedServiceForDetails}
               selectedPlanIndex={selectedServiceForDetails.selectedPlanIndex}
               onPlanChange={handlePlanChange}
-              onClose={() => setSelectedServiceForDetails(null)}
             />
           )}
         </div>

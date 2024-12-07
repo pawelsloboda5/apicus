@@ -1,185 +1,131 @@
 "use client"
-import { useState, useMemo } from "react"
-import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Service } from "@/types/service"
 
-type LimitItem = {
+interface ServiceStackBuilderProps {
+  initialServices: Service[]
+  onServicesChange: (services: Service[]) => void
+}
+
+interface ServiceFilter {
   name: string
-  value: string
-  description: string
+  minPrice?: number
+  maxPrice?: number
+  category?: string
 }
 
-type Plan = {
-  name: string
-  isFreeTier: boolean
-  pricing: {
-    original: any
-    usage_based: any
-    custom_pricing: boolean
-  }
-  limits: {
-    users: {
-      min: number | null
-      max: number | null
-      description: string | null
-    },
-    storage: {
-      amount: number | null
-      unit: string | null
-      description: string | null
-    },
-    api: {
-      rate: {
-        amount: number | null
-        period: string | null
-        description: string | null
-      },
-      quota: {
-        amount: number | null
-        period: string | null
-        description: string | null
-      },
-      description: string | null
-    },
-    other_limits: LimitItem[]
-  }
-  features: {
-    highlighted: string[]
-    detailed: string[]
-  }
-  trial: {
-    available: boolean
-    duration_days: number | null
-    description: string | null
-  }
-  enhanced_features: any[]
-  value_proposition: string
-  user_persona: object
-}
+export function ServiceStackBuilder({ 
+  initialServices,
+  onServicesChange 
+}: ServiceStackBuilderProps) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedServices, setSelectedServices] = useState<Service[]>([])
+  const [filters, setFilters] = useState<ServiceFilter>({
+    name: "",
+    minPrice: undefined,
+    maxPrice: undefined,
+    category: undefined
+  })
 
-type ServiceDoc = {
-  _id: { $oid: string }
-  metadata: {
-    service_name: string
-    processed_at?: string
-    source_id?: string
-    model_target?: string
-    version?: string
-    original_url?: string
-    pricing_types?: string[]
-    regions?: string[]
-    last_updated?: string
-  }
-  enhanced_data?: {
-    service_info?: {
-      name?: string
-      url?: string
-      currency?: string
-      pricing_type?: string[]
-      billing_cycles?: string[]
-      regions?: string[]
-      last_updated?: string
+  const getServicePrice = (service: Service) => {
+    try {
+      if (!service?.enhanced_data?.plans?.length) return 0;
+      
+      const prices = service.enhanced_data.plans
+        .filter(plan => plan?.pricing?.monthly?.base_price)
+        .map(plan => plan.pricing.monthly.base_price);
+      
+      return prices.length > 0 ? Math.min(...prices) : 0;
+    } catch (error) {
+      console.error('Error calculating service price:', error);
+      return 0;
     }
-    plans?: Plan[]
-  }
-  // ... other fields
-}
+  };
 
-export default function ServiceStackBuilder({ initialServices }: { initialServices: ServiceDoc[] }) {
-  const [allServices, setAllServices] = useState<ServiceDoc[]>(initialServices || [])
-  const [selectedStack, setSelectedStack] = useState<ServiceDoc[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
+  const filteredServices = initialServices.filter(service => {
+    const price = getServicePrice(service)
+    const nameMatch = service.metadata.service_name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+    const minPriceMatch = !filters.minPrice || price >= filters.minPrice
+    const maxPriceMatch = !filters.maxPrice || price <= filters.maxPrice
+    const categoryMatch = !filters.category || 
+      service.metadata.pricing_types.includes(filters.category)
 
-  const filteredServices = useMemo(() => {
-    if (!searchTerm) return allServices
-    return allServices.filter(s => 
-      s.metadata.service_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [searchTerm, allServices])
+    return nameMatch && minPriceMatch && maxPriceMatch && categoryMatch
+  })
 
-  function addToStack(service: ServiceDoc) {
-    if (!selectedStack.find(s => s._id.$oid === service._id.$oid)) {
-      setSelectedStack(prev => [...prev, service])
-    }
+  const handleServiceSelect = (service: Service) => {
+    const newServices = [...selectedServices, service]
+    setSelectedServices(newServices)
+    onServicesChange(newServices)
   }
 
-  function removeFromStack(serviceId: string) {
-    setSelectedStack(prev => prev.filter(s => s._id.$oid !== serviceId))
+  const handleServiceRemove = (serviceId: string) => {
+    const newServices = selectedServices.filter(s => s._id !== serviceId)
+    setSelectedServices(newServices)
+    onServicesChange(newServices)
   }
 
   return (
-    <div className="flex gap-4">
-      <div className="w-1/2">
-        <h2 className="font-bold text-xl mb-2">Add Services to Your Stack</h2>
-        <Input 
-          placeholder="Search services..." 
-          value={searchTerm} 
-          onChange={e => setSearchTerm(e.target.value)}
-          className="mb-4"
-        />
-
-        <div className="grid gap-4">
-          {filteredServices.map(service => (
-            <Card key={service._id.$oid} className="p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold">{service.metadata.service_name}</h3>
-                <p className="text-sm text-gray-600">
-                  {service.enhanced_data?.plans?.length || 0} plan(s)
-                </p>
-              </div>
-              <Button onClick={() => addToStack(service)}>Add</Button>
-            </Card>
-          ))}
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <Label htmlFor="search">Search Services</Label>
+          <Input
+            id="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name..."
+          />
+        </div>
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <select
+            id="category"
+            className="w-full p-2 border rounded"
+            value={filters.category}
+            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+          >
+            <option value="">All Categories</option>
+            {/* Add your categories here */}
+          </select>
         </div>
       </div>
 
-      <div className="w-1/2">
-        <h2 className="font-bold text-xl mb-2">Your Stack</h2>
-        {selectedStack.length === 0 && <p>No services added yet.</p>}
-        <div className="grid gap-4">
-          {selectedStack.map(service => {
-            const plans = service.enhanced_data?.plans || []
-            return (
-              <Card key={service._id.$oid} className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-semibold">{service.metadata.service_name}</h3>
-                    <p className="text-sm text-gray-700">
-                      {plans.length} plan(s)
-                    </p>
-                  </div>
-                  <Button variant="destructive" onClick={() => removeFromStack(service._id.$oid)}>Remove</Button>
-                </div>
-
-                {/* Display a summary of the plans */}
-                {plans.map((plan, idx) => (
-                  <div key={idx} className="mb-4 border p-2 rounded">
-                    <h4 className="font-semibold text-md">{plan.name} {plan.isFreeTier ? "(Free)" : "(Paid)"}</h4>
-                    <div className="text-sm text-gray-700">
-                      {/* Show some limits */}
-                      {plan.limits.other_limits.map((limitItem, limitIdx) => (
-                        <p key={limitIdx}>{limitItem.name}: {limitItem.value} - {limitItem.description}</p>
-                      ))}
-                      {/* Highlighted features */}
-                      {plan.features.highlighted.length > 0 && (
-                        <div className="mt-2">
-                          <strong>Features:</strong>
-                          <ul className="list-disc list-inside">
-                            {plan.features.highlighted.map((feat, fIdx) => (
-                              <li key={fIdx}>{feat}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </Card>
-            )
-          })}
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredServices.map(service => (
+          <div
+            key={service._id}
+            className="p-4 border rounded shadow hover:shadow-md transition-shadow"
+          >
+            <h3 className="font-medium">{service.metadata.service_name}</h3>
+            <p className="text-sm text-gray-600">
+              From ${getServicePrice(service)}/mo
+            </p>
+            <div className="mt-2 flex gap-2">
+              {service.metadata.pricing_types.map(type => (
+                <span
+                  key={type}
+                  className="text-xs px-2 py-1 bg-gray-100 rounded"
+                >
+                  {type}
+                </span>
+              ))}
+            </div>
+            <Button
+              className="mt-4 w-full"
+              onClick={() => handleServiceSelect(service)}
+              disabled={selectedServices.some(s => s._id === service._id)}
+            >
+              Add to Stack
+            </Button>
+          </div>
+        ))}
       </div>
     </div>
   )

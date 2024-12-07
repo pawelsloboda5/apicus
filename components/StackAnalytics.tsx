@@ -11,27 +11,22 @@ import {
   ResponsiveContainer,
   Label
 } from "recharts"
+import { Service } from "@/types/service"
 
 interface StackAnalyticsProps {
-  services: Array<{
-    _id: string;
-    metadata: {
-      service_name: string;
-    }
-    enhanced_data: {
-      plans: Array<{
-        pricing: {
-          monthly: {
-            base_price: number;
-          }
-        }
-      }>
-    }
-  }>;
+  services: Service[];
   servicePlans: Array<{
     serviceId: string;
     planIndex: number;
   }>;
+}
+
+interface ServicePriceInfo {
+  name: string;
+  displayName: string;
+  cost: number;
+  hasPrice: boolean;
+  isFreeTier: boolean;
 }
 
 const MAX_SERVICE_NAME_LENGTH = 20;
@@ -42,18 +37,30 @@ const truncateText = (text: string, maxLength: number) => {
 };
 
 export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) {
-  const getServicePrice = (service: any) => {
+  const getServicePrice = (service: Service): number | null => {
     const planState = servicePlans.find(sp => sp.serviceId === service._id)
-    return service.enhanced_data.plans[planState?.planIndex || 0]?.pricing.monthly.base_price || 0;
+    const price = service.enhanced_data.plans[planState?.planIndex || 0]?.pricing?.monthly?.base_price
+    return price || null;
   };
 
-  const chartData = services.map(service => ({
-    name: service.metadata.service_name,
-    displayName: truncateText(service.metadata.service_name, MAX_SERVICE_NAME_LENGTH),
-    cost: getServicePrice(service)
-  })).sort((a, b) => b.cost - a.cost);
+  const chartData: ServicePriceInfo[] = services
+    .map(service => {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      const plan = service.enhanced_data.plans[planState?.planIndex || 0]
+      const price = getServicePrice(service);
+      return {
+        name: service.metadata.service_name,
+        displayName: truncateText(service.metadata.service_name, MAX_SERVICE_NAME_LENGTH),
+        cost: price || 0,
+        hasPrice: price !== null,
+        isFreeTier: plan.isFreeTier || false
+      };
+    })
+    .sort((a, b) => b.cost - a.cost);
 
-  const totalCost = chartData.reduce((sum, item) => sum + item.cost, 0);
+  const totalCost = chartData
+    .filter(item => item.hasPrice)
+    .reduce((sum, item) => sum + item.cost, 0);
 
   if (services.length === 0) {
     return (
@@ -172,7 +179,14 @@ export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) 
                           {((item.cost / totalCost) * 100).toFixed(1)}% of total
                         </div>
                       </div>
-                      <span className="text-sm font-mono font-medium">${item.cost}</span>
+                      <div className="text-sm font-mono font-medium">
+                        {item.isFreeTier 
+                          ? 'Free'
+                          : item.hasPrice 
+                            ? `$${item.cost}` 
+                            : 'N/A'
+                        }
+                      </div>
                     </div>
                   ))}
                 </div>
