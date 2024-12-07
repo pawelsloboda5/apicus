@@ -1,3 +1,17 @@
+# Apicus
+
+A tech stack builder and cost analysis tool.
+
+## Features
+
+- Build and customize your tech stack
+- Real-time cost analysis
+- Service comparison
+- Detailed service insights
+- Cost breakdown visualization
+
+## Development
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
