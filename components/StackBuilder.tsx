@@ -68,7 +68,7 @@ export function StackBuilder({
     setServicePlans(prev => 
       prev.filter(sp => selectedServices.some(s => s._id === sp.serviceId))
     )
-  }, [selectedServices, setServicePlans])
+  }, [selectedServices, setServicePlans, servicePlans])
 
   useEffect(() => {
     if (selectedServices.length > 0 && !selectedServiceForDetails) {

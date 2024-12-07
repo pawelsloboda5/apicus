@@ -57,6 +57,7 @@ export function MobileServiceDiscovery({
 }: MobileServiceDiscoveryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [priceRange, setPriceRange] = useState<PriceRange>('all')
+  const [category, setCategory] = useState<ServiceCategory>('all')
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
 
   // Extract unique features from all services
@@ -92,6 +93,14 @@ export function MobileServiceDiscovery({
         (priceRange === '500+' && basePrice > 500)
       if (!matchesPrice) return false
 
+      // Category filter
+      if (category !== 'all') {
+        const matchesCategory = service.metadata.pricing_types
+          .map(t => t.toLowerCase())
+          .includes(category.toLowerCase())
+        if (!matchesCategory) return false
+      }
+
       // Feature filter - match any selected feature
       if (selectedFeatures.length > 0) {
         const serviceFeatures = service.enhanced_data.plans.reduce(
@@ -103,7 +112,7 @@ export function MobileServiceDiscovery({
 
       return true
     })
-  }, [availableServices, selectedServices, searchQuery, priceRange, selectedFeatures])
+  }, [availableServices, selectedServices, searchQuery, priceRange, category, selectedFeatures])
 
   // Get matching features for a service
   const getMatchingFeatures = (service: Service) => {
@@ -143,11 +152,27 @@ export function MobileServiceDiscovery({
               </SelectContent>
             </Select>
 
+            <Select value={category} onValueChange={(value: ServiceCategory) => setCategory(value)}>
+              <SelectTrigger className="w-[140px]">
+                <Server className="h-4 w-4 mr-1" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="hosting">Hosting</SelectItem>
+                <SelectItem value="database">Database</SelectItem>
+                <SelectItem value="analytics">Analytics</SelectItem>
+                <SelectItem value="monitoring">Monitoring</SelectItem>
+                <SelectItem value="security">Security</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button 
               variant="outline" 
               className="flex-1"
               onClick={() => {
                 setPriceRange('all')
+                setCategory('all')
                 setSelectedFeatures([])
                 setSearchQuery("")
               }}
