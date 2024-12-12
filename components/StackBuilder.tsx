@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { MetricCard } from "@/components/analytics/MetricCard"
 import { extractServiceMetrics } from "@/utils/metrics"
+import { ServiceStackBuilder } from "./ServiceStackBuilder"
 
 interface SelectedService extends Service {
   selectedPlanIndex: number
@@ -365,12 +366,9 @@ export function StackBuilder({
         <ServiceSelectionDialog
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filteredServices={filteredServices}
           onServiceAdd={handleAddService}
-          getLowestPrice={getLowestPrice}
           isLoading={isLoading}
+          availableServices={availableServices}
         />
 
         <StackAnalytics
@@ -540,111 +538,31 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 function ServiceSelectionDialog({ 
   isOpen, 
   onClose, 
-  searchQuery, 
-  onSearchChange,
-  filteredServices,
   onServiceAdd,
-  getLowestPrice,
-  isLoading
+  isLoading,
+  availableServices
 }: {
   isOpen: boolean
   onClose: () => void
-  searchQuery: string
-  onSearchChange: (query: string) => void
-  filteredServices: Service[]
   onServiceAdd: (service: Service) => void
-  getLowestPrice: (service: Service) => number
   isLoading?: boolean
+  availableServices: Service[]
 }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Add Service to Stack</DialogTitle>
-        </DialogHeader>
-        
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            placeholder="Search services..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {filteredServices.map((service) => (
-            <ServiceOption
-              key={service._id}
-              service={service}
-              lowestPrice={getLowestPrice(service)}
-              onSelect={() => onServiceAdd(service)}
-              isLoading={isLoading}
-            />
-          ))}
-        </div>
-
-        {filteredServices.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
-            No matching services found
-          </div>
-        )}
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0">
+        <ServiceStackBuilder
+          initialServices={availableServices}
+          onServicesChange={(services) => {
+            if (services.length > 0) {
+              // Add the last selected service
+              onServiceAdd(services[services.length - 1])
+              onClose()
+            }
+          }}
+        />
       </DialogContent>
     </Dialog>
-  )
-}
-
-function ServiceOption({ 
-  service, 
-  lowestPrice, 
-  onSelect, 
-  isLoading 
-}: { 
-  service: Service
-  lowestPrice: number
-  onSelect: () => void
-  isLoading?: boolean
-}) {
-  return (
-    <Card 
-      className={`
-        cursor-pointer hover:border-slate-400 transition-all duration-200
-        ${isLoading ? 'opacity-50 pointer-events-none' : ''}
-      `}
-      onClick={onSelect}
-    >
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start mb-3">
-          <div>
-            <h3 className="font-medium mb-1">{service.metadata.service_name}</h3>
-            <div className="text-sm text-slate-600">
-              From ${lowestPrice}/mo
-            </div>
-          </div>
-          <Plus className="h-4 w-4 text-slate-400" />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {service.metadata.pricing_types?.map((type) => (
-            <Badge 
-              key={type}
-              variant="secondary"
-              className="bg-slate-100 text-slate-700"
-            >
-              {type}
-            </Badge>
-          ))}
-        </div>
-
-        {service.enhanced_data.market_insights?.target_market && (
-          <div className="mt-3 text-xs text-slate-500">
-            {service.enhanced_data.market_insights.target_market}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   )
 }
 
