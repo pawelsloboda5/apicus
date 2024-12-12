@@ -1,350 +1,621 @@
 // components/ServiceDetails.tsx
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Box, 
-  CircleDollarSign, 
-  Clock, 
-  Server, 
-  Shield, 
-  Zap,
-  CheckCircle2,
-  Target, 
-  TrendingUp, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Briefcase,
-  BarChart3
-} from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Service } from "@/types/service"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { extractMetricsFromPlan } from "./analytics/utils"
+import { UsageProjections } from "./analytics/UsageProjections"
+import { UsageInsightCard } from "./analytics/UsageInsightCard"
+import { ServiceMetric, UsageMetric, ServiceMetricsConfig } from "@/types/analytics"
+import { useState, useEffect, useMemo } from "react"
+import { Progress } from "@/components/ui/progress"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
+import { 
+  Users, Database, Zap, Server, 
+  Clock, AlertCircle, CheckCircle2,
+  CreditCard, TrendingUp, Infinity,
+  HardDrive, Users2, Gamepad2,
+  BarChart3, AlertTriangle
+} from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
+import { extractServiceMetrics } from "@/utils/metrics"
 
 interface ServiceDetailsProps {
   service: Service
   selectedPlanIndex: number
   onPlanChange: (index: number) => void
+  onMetricChange?: (metricId: string, value: number) => void
+  simulatedValues?: Record<string, number>
+}
+
+interface PlanFeatureCategory {
+  name: string
+  icon: JSX.Element
+  features: Array<{
+    name: string
+    description?: string | undefined
+  }>
+}
+
+// Add type guard
+function isValidFeature(feature: any): feature is { name: string; description?: string } {
+  return typeof feature === 'object' && feature !== null && typeof feature.name === 'string';
+}
+
+// Add this before the MetricCard component
+function calculateOverageCost(metric: UsageMetric): number | null {
+  if (!metric.currentPlanThreshold) return null
+  
+  const overageUnits = Math.max(0, metric.value - metric.currentPlanThreshold)
+  const rate = metric.costInfo?.overageRate || 
+    (metric.nextPlan?.price && metric.nextPlan.limit 
+      ? (metric.nextPlan.price - (metric.costInfo?.basePrice || 0)) / 
+        (metric.nextPlan.limit - metric.currentPlanThreshold)
+      : 0)
+  
+  return overageUnits * rate
+}
+
+interface MetricCardProps {
+  metric: UsageMetric
+  onValueChange: (value: number) => void
+}
+
+function MetricCard({ metric, onValueChange }: MetricCardProps) {
+  if (metric.isUnlimited || !metric.currentPlanThreshold) {
+    return (
+      <div className="bg-white/50 backdrop-blur-sm rounded-lg p-4 hover:bg-white/60 transition-colors">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-medium text-slate-900">{metric.name}</h4>
+          <Badge variant="secondary" className="bg-blue-50/50 text-blue-700 font-medium border-0">
+            {metric.isUnlimited ? "Unlimited" : "Not Specified"}
+          </Badge>
+        </div>
+        <p className="text-sm text-slate-600">
+          {metric.description || `No usage limits for ${metric.name.toLowerCase()}`}
+        </p>
+      </div>
+    )
+  }
+
+  const maxValue = metric.nextPlan?.limit 
+    ? Math.min(metric.nextPlan.limit * 2, Number.MAX_SAFE_INTEGER)
+    : metric.currentPlanThreshold * 2
+
+  const percentage = (metric.value / metric.currentPlanThreshold) * 100
+  const overageCost = calculateOverageCost(metric)
+
+  return (
+    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-4 hover:bg-white/60 transition-all">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="font-medium text-slate-900">{metric.name}</h4>
+            {metric.description && (
+              <p className="text-sm text-slate-600 mt-0.5">{metric.description}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-medium">
+              {metric.value.toLocaleString()} / {metric.currentPlanThreshold.toLocaleString()}
+              {metric.unit && ` ${metric.unit}`}
+            </div>
+            <div className={cn(
+              "text-xs font-medium",
+              percentage > 100 ? "text-red-600" : 
+              percentage > 80 ? "text-yellow-600" : 
+              "text-green-600"
+            )}>
+              {percentage.toFixed(1)}% utilized
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Slider
+              value={[metric.value]}
+              min={0}
+              max={maxValue}
+              step={1}
+              onValueChange={([value]) => onValueChange(value)}
+              className={cn(
+                "flex-1",
+                percentage > 100 ? "[&>div]:bg-red-500" :
+                percentage > 80 ? "[&>div]:bg-yellow-500" :
+                "[&>div]:bg-blue-500"
+              )}
+            />
+            <Input
+              type="number"
+              value={metric.value}
+              onChange={(e) => onValueChange(Number(e.target.value))}
+              className="w-24 border-0 bg-slate-50"
+            />
+          </div>
+
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>Current Tier: {metric.currentPlanThreshold.toLocaleString()} {metric.unit}</span>
+            {metric.nextPlan && (
+              <span>Next Tier: {metric.nextPlan.limit?.toLocaleString()} {metric.unit}</span>
+            )}
+          </div>
+
+          {percentage > 100 && (
+            <div className="mt-2 p-3 rounded-lg bg-gradient-to-r from-red-50 to-red-50/50 border-0">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <div className="text-sm text-red-800">
+                  <p className="font-medium">Exceeding Current Tier</p>
+                  <p className="text-xs mt-0.5">
+                    Consider upgrading to avoid overage charges of ${overageCost?.toFixed(2) || '0.00'}
+                    {metric.period && ` per ${metric.period}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {percentage > 80 && percentage <= 100 && (
+            <div className="mt-2 p-3 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-50/50 border-0">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                <div className="text-sm text-yellow-800">
+                  Approaching tier limit - monitor usage closely
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function ServiceDetails({ 
   service, 
-  selectedPlanIndex, 
+  selectedPlanIndex,
   onPlanChange,
+  onMetricChange,
+  simulatedValues = {}
 }: ServiceDetailsProps) {
+  const [localSimulatedValues, setLocalSimulatedValues] = useState<Record<string, number>>({})
   const currentPlan = service.enhanced_data.plans[selectedPlanIndex]
+  const nextPlan = service.enhanced_data.plans[selectedPlanIndex + 1]
+  
+  // Use useMemo for metrics
+  const metrics = useMemo(() => 
+    extractServiceMetrics(service, currentPlan, nextPlan), 
+    [service, currentPlan, nextPlan]
+  )
+
+  // Use useMemo for usageMetrics with corrected value handling
+  const usageMetrics = useMemo(() => 
+    metrics.map(metric => ({
+      ...metric,
+      value: simulatedValues[metric.id] ?? localSimulatedValues[metric.id] ?? metric.value,
+      usageInfo: {
+        current: simulatedValues[metric.id] ?? localSimulatedValues[metric.id] ?? metric.value,
+        limit: metric.currentPlanThreshold,
+        percentage: metric.currentPlanThreshold ? 
+          ((simulatedValues[metric.id] ?? localSimulatedValues[metric.id] ?? metric.value) / metric.currentPlanThreshold) * 100 : 0,
+        period: metric.period
+      }
+    })),
+    [metrics, simulatedValues, localSimulatedValues]
+  )
+
+  const handleMetricChange = (metricId: string, value: number) => {
+    setLocalSimulatedValues(prev => ({
+      ...prev,
+      [metricId]: value
+    }))
+
+    // Emit changes to parent component if provided
+    if (onMetricChange) {
+      onMetricChange(metricId, value)
+    }
+  }
+
+  // Group features by category with proper type checking
+  const featureCategories = currentPlan.features.categories?.reduce<PlanFeatureCategory[]>((acc, category) => {
+    if (!category.name || !Array.isArray(category.features)) return acc;
+
+    let icon: JSX.Element;
+    switch (category.name.toLowerCase()) {
+      case 'users':
+        icon = <Users className="h-5 w-5" />;
+        break;
+      case 'storage':
+        icon = <Database className="h-5 w-5" />;
+        break;
+      case 'api':
+        icon = <Zap className="h-5 w-5" />;
+        break;
+      default:
+        icon = <Server className="h-5 w-5" />;
+    }
+
+    // Filter out invalid features
+    const validFeatures = category.features
+      .filter(isValidFeature)
+      .map(feature => ({
+        name: feature.name,
+        description: feature.description
+      }));
+
+    if (validFeatures.length === 0) return acc;
+
+    acc.push({
+      name: category.name,
+      icon,
+      features: validFeatures
+    });
+    return acc;
+  }, []) || [];
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <div className="flex items-center justify-between mb-4">
-          <div className="space-y-1">
-            <CardTitle className="text-2xl">{service.metadata.service_name}</CardTitle>
-            <p className="text-sm text-slate-600">
-              Currently viewing {currentPlan.name} plan
-            </p>
+    <Tabs defaultValue="overview" className="w-full">
+      <TabsList className="grid w-full grid-cols-4">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="usage">Usage</TabsTrigger>
+        <TabsTrigger value="features">Features</TabsTrigger>
+        <TabsTrigger value="limits">Limits</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview">
+        <div className="grid gap-6">
+          {/* Plan Selection */}
+          <div className="bg-white/50 backdrop-blur-sm rounded-lg p-6 hover:bg-white/60 transition-all">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold">{currentPlan.name}</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    {currentPlan.pricing?.monthly?.details || `${currentPlan.name} plan`}
+                  </p>
+                </div>
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-right"
+                >
+                  <div className="text-2xl font-bold">
+                    ${currentPlan.pricing?.monthly?.base_price || 0}
+                    <span className="text-sm font-normal text-slate-500">/mo</span>
+                  </div>
+                  {currentPlan.pricing?.annual && (
+                    <div className="text-sm text-green-600">
+                      Save {currentPlan.pricing.annual.savings_percentage}% annually
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+
+              <div className="grid gap-4">
+                <h4 className="font-medium">Available Plans</h4>
+                <div className="grid gap-2">
+                  {service.enhanced_data.plans.map((plan, index) => (
+                    <button
+                      key={index}
+                      onClick={() => onPlanChange(index)}
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-lg transition-all bg-white/60 backdrop-blur-sm",
+                        index === selectedPlanIndex
+                          ? "bg-blue-50/50 ring-1 ring-blue-200 shadow-sm"
+                          : "hover:bg-white/80"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          index === selectedPlanIndex ? "bg-blue-100" : "bg-slate-100"
+                        )}>
+                          {index === selectedPlanIndex ? (
+                            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <CreditCard className="h-5 w-5 text-slate-600" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">{plan.name}</div>
+                          <div className="text-sm text-slate-500">
+                            {plan.pricing?.monthly?.details || `${plan.name} tier`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">
+                          ${plan.pricing?.monthly?.base_price || 0}/mo
+                        </div>
+                        {plan.pricing?.annual && (
+                          <div className="text-sm text-green-600">
+                            {plan.pricing.annual.savings_percentage}% off annually
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Select
-              value={selectedPlanIndex.toString()}
-              onValueChange={(value) => onPlanChange(parseInt(value))}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                {service.enhanced_data.plans.map((plan, index) => (
-                  <SelectItem key={plan.name} value={index.toString()}>
-                    {plan.name}
-                    {!plan.isFreeTier && plan.pricing?.monthly?.base_price 
-                      ? ` - $${plan.pricing.monthly.base_price}/mo` 
-                      : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              {service.metadata.pricing_types.map(type => (
-                <Badge key={type} variant="secondary">
-                  {type}
-                </Badge>
+
+          {/* Key Metrics */}
+          <div className="grid gap-4">
+            <h4 className="font-medium">Key Metrics</h4>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {metrics.slice(0, 4).map(metric => (
+                <div key={metric.id} 
+                  className="bg-white/50 backdrop-blur-sm rounded-lg p-4 hover:bg-white/60 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      metric.type === 'storage' && "bg-purple-100 text-purple-700",
+                      metric.type === 'users' && "bg-blue-100 text-blue-700",
+                      metric.type === 'api' && "bg-yellow-100 text-yellow-700",
+                      metric.type === 'other' && "bg-slate-100 text-slate-700"
+                    )}>
+                      {metric.type === 'storage' && <Database className="h-5 w-5" />}
+                      {metric.type === 'users' && <Users className="h-5 w-5" />}
+                      {metric.type === 'api' && <Zap className="h-5 w-5" />}
+                      {metric.type === 'other' && <Server className="h-5 w-5" />}
+                    </div>
+                    <div>
+                      <div className="font-medium">{metric.name}</div>
+                      <div className="text-sm text-slate-500">
+                        {metric.value} / {metric.currentPlanThreshold || '∞'} {metric.unit}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="features">Features</TabsTrigger>
-            <TabsTrigger value="limits">Limits</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          </TabsList>
+      </TabsContent>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CircleDollarSign className="h-4 w-4 text-blue-500" />
-                    <h3 className="font-medium">Pricing</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-slate-600">Base Price</span>
-                      <div className="text-2xl font-bold font-mono">
-                        {currentPlan.name.toLowerCase() === 'free' 
-                          ? 'Free'
-                          : currentPlan.pricing?.monthly?.base_price 
-                            ? <>
-                                ${currentPlan.pricing.monthly.base_price}
-                                <span className="text-sm font-normal text-slate-500">/mo</span>
-                              </>
-                            : 'N/A'
-                        }
-                      </div>
-                    </div>
-                    {currentPlan.pricing.annual && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-slate-600">Annual Savings</span>
-                        <span className="font-medium text-green-600">
-                          {currentPlan.pricing.annual.savings_percentage}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+      <TabsContent value="usage" className="space-y-6">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 p-6 rounded-lg border-0 backdrop-blur-sm">
+          <h3 className="text-lg font-semibold text-blue-900">Usage Configuration</h3>
+          <p className="text-sm text-blue-700/90 mt-1">
+            Estimate your usage to see cost projections and plan recommendations
+          </p>
+        </div>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-4 w-4 text-orange-500" />
-                    <h3 className="font-medium">Billing Cycles</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    {service.enhanced_data.service_info.billing_cycles.map(cycle => (
-                      <Badge key={cycle} variant="secondary">
-                        {cycle}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+        <div className="space-y-8">
+          {['users', 'storage', 'api', 'other'].map(type => {
+            const typeMetrics = usageMetrics.filter(m => m.type === type)
+            if (!typeMetrics.length) return null
 
-            {currentPlan.pricing.usage_components && currentPlan.pricing.usage_components.length > 0 ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Zap className="h-4 w-4 text-yellow-500" />
-                    <h3 className="font-medium">Additional Usage Costs</h3>
+            return (
+              <div key={type} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "p-2 rounded-lg bg-gradient-to-br",
+                    type === 'storage' && "from-purple-100 to-purple-50",
+                    type === 'users' && "from-blue-100 to-blue-50",
+                    type === 'api' && "from-yellow-100 to-yellow-50",
+                    type === 'other' && "from-slate-100 to-slate-50"
+                  )}>
+                    {type === 'storage' && <Database className="h-5 w-5" />}
+                    {type === 'users' && <Users className="h-5 w-5" />}
+                    {type === 'api' && <Zap className="h-5 w-5" />}
+                    {type === 'other' && <Server className="h-5 w-5" />}
                   </div>
-                  <div className="space-y-3">
-                    {currentPlan.pricing.usage_components.map(component => (
-                      <div key={component.name} className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600">{component.name}</span>
-                        <span className="text-sm font-medium">
-                          ${component.price_per_unit}/{component.unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="py-6">
-                  <div className="text-center text-slate-500">
-                    No additional usage-based charges
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+                  <h4 className="font-medium capitalize">{type} Limits</h4>
+                </div>
 
-          <TabsContent value="features">
-            <Card>
-              <CardContent className="pt-6">
                 <div className="grid gap-4">
-                  {currentPlan.features.highlighted.map(feature => (
-                    <div key={feature} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-1" />
-                      <span className="text-sm">{feature}</span>
+                  {typeMetrics.map(metric => (
+                    <MetricCard
+                      key={metric.id}
+                      metric={metric}
+                      onValueChange={(value) => handleMetricChange(metric.id, value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Cost Impact Summary */}
+        {usageMetrics.some(m => 
+          m.currentPlanThreshold && 
+          m.value > m.currentPlanThreshold
+        ) && (
+          <div className="mt-6 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+            <div className="flex items-start gap-3">
+              <TrendingUp className="h-5 w-5 text-amber-600 mt-1" />
+              <div>
+                <h4 className="font-medium text-amber-900">Usage Exceeds Current Plan</h4>
+                <p className="text-sm text-amber-700 mt-1">
+                  Your projected usage may result in additional charges. Consider upgrading to a higher tier for better value.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </TabsContent>
+
+      <TabsContent value="features">
+        <div className="grid gap-6">
+          {featureCategories.map((category, index) => (
+            <div key={index} className="bg-white/50 backdrop-blur-sm rounded-lg p-6 hover:bg-white/60 transition-all">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-slate-100">
+                    {category.icon}
+                  </div>
+                  <h4 className="font-medium">{category.name}</h4>
+                </div>
+                <div className="grid gap-4">
+                  {category.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <div>
+                        <div className="font-medium">{feature.name}</div>
+                        {feature.description && (
+                          <div className="text-sm text-slate-600 mt-1">{feature.description}</div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="limits">
-            <div className="grid gap-4 md:grid-cols-2">
-              {currentPlan.limits?.users && (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Box className="h-4 w-4 text-purple-500" />
-                      <h3 className="font-medium">User Limits</h3>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {currentPlan.limits?.users.description || 
-                       `Min: ${currentPlan.limits?.users.min || 'N/A'}, Max: ${currentPlan.limits?.users.max || 'Unlimited'}`}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {currentPlan.limits?.storage && (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Server className="h-4 w-4 text-indigo-500" />
-                      <h3 className="font-medium">Storage Limits</h3>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {currentPlan.limits?.storage.description || 
-                       `${currentPlan.limits?.storage.amount} ${currentPlan.limits?.storage.unit}`}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {currentPlan.limits?.api && (
-                <Card className="md:col-span-2">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Shield className="h-4 w-4 text-red-500" />
-                      <h3 className="font-medium">API Limits</h3>
-                    </div>
-                    <div className="space-y-4">
-                      {currentPlan.limits.api.rate.description && (
-                        <div>
-                          <h4 className="text-sm font-medium mb-1">Rate Limits</h4>
-                          <p className="text-sm text-slate-600">{currentPlan.limits.api.rate.description}</p>
-                        </div>
-                      )}
-                      {currentPlan.limits.api.quota.description && (
-                        <div>
-                          <h4 className="text-sm font-medium mb-1">Quota Limits</h4>
-                          <p className="text-sm text-slate-600">{currentPlan.limits.api.quota.description}</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              </div>
             </div>
-          </TabsContent>
+          ))}
+        </div>
+      </TabsContent>
 
-          <TabsContent value="insights">
-            <div className="grid gap-4">
-              {/* Market Insights Section */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-6">
-                    {/* Target Market */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Target className="h-5 w-5 text-blue-500" />
-                        <h3 className="font-medium">Target Market</h3>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        {service.enhanced_data.market_insights?.target_market}
-                      </p>
+      <TabsContent value="limits">
+        <div className="space-y-6">
+          {/* Resource Limits */}
+          <div className="grid gap-6">
+            {/* Users */}
+            {currentPlan.limits?.users && (
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-100">
+                      <Users className="h-5 w-5 text-blue-700" />
                     </div>
-
-                    {/* Common Use Cases */}
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Briefcase className="h-5 w-5 text-purple-500" />
-                        <h3 className="font-medium">Common Use Cases</h3>
-                      </div>
-                      <ul className="grid gap-2">
-                        {service.enhanced_data.market_insights?.common_use_cases?.map((useCase) => (
-                          <li key={useCase} className="flex items-start gap-2 text-sm text-slate-600">
-                            <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-1.5" />
-                            {useCase}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Growth Trends */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <TrendingUp className="h-5 w-5 text-green-500" />
-                        <h3 className="font-medium">Market Trends</h3>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        {service.enhanced_data.market_insights?.growth_trends}
+                      <h4 className="font-medium">User Limits</h4>
+                      <p className="text-sm text-slate-500">
+                        {currentPlan.limits.users.description || "Manage your team size"}
                       </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              {/* Competitive Analysis Section */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-6">
-                    {/* Market Position */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <BarChart3 className="h-5 w-5 text-indigo-500" />
-                        <h3 className="font-medium">Market Position</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="p-4 rounded-lg bg-slate-50">
+                      <div className="text-sm text-slate-600">Minimum Users</div>
+                      <div className="text-lg font-medium">
+                        {currentPlan.limits.users.min || "No minimum"}
                       </div>
-                      <p className="text-sm text-slate-600">
-                        {service.enhanced_data.competitive_positioning?.market_position}
-                      </p>
                     </div>
-
-                    {/* Competitive Advantages */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <ThumbsUp className="h-5 w-5 text-green-500" />
-                        <h3 className="font-medium">Competitive Advantages</h3>
+                    <div className="p-4 rounded-lg bg-slate-50">
+                      <div className="text-sm text-slate-600">Maximum Users</div>
+                      <div className="text-lg font-medium">
+                        {currentPlan.limits.users.max || "Unlimited"}
                       </div>
-                      <ul className="grid gap-2">
-                        {service.enhanced_data.competitive_positioning?.competitive_advantages?.map((advantage) => (
-                          <li key={advantage} className="flex items-start gap-2 text-sm text-slate-600">
-                            <div className="h-1.5 w-1.5 rounded-full bg-green-400 mt-1.5" />
-                            {advantage}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Competitive Disadvantages */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <ThumbsDown className="h-5 w-5 text-red-500" />
-                        <h3 className="font-medium">Competitive Disadvantages</h3>
-                      </div>
-                      <ul className="grid gap-2">
-                        {service.enhanced_data.competitive_positioning?.competitive_disadvantages?.map((disadvantage) => (
-                          <li key={disadvantage} className="flex items-start gap-2 text-sm text-slate-600">
-                            <div className="h-1.5 w-1.5 rounded-full bg-red-400 mt-1.5" />
-                            {disadvantage}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   </div>
-                </CardContent>
+                </div>
               </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            )}
+
+            {/* Storage */}
+            {currentPlan.limits?.storage && (
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-100">
+                      <Database className="h-5 w-5 text-purple-700" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Storage Limits</h4>
+                      <p className="text-sm text-slate-500">
+                        {currentPlan.limits.storage.description || "Manage your storage capacity"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-slate-50">
+                    <div className="text-sm text-slate-600">Storage Capacity</div>
+                    <div className="text-lg font-medium">
+                      {currentPlan.limits.storage.amount} {currentPlan.limits.storage.unit}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* API Limits */}
+            {currentPlan.limits?.api && (
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-yellow-100">
+                      <Zap className="h-5 w-5 text-yellow-700" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">API Limits</h4>
+                      <p className="text-sm text-slate-500">
+                        Manage your API usage and quotas
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {currentPlan.limits.api.rate && (
+                      <div className="p-4 rounded-lg bg-slate-50">
+                        <div className="text-sm text-slate-600">Rate Limit</div>
+                        <div className="text-lg font-medium">
+                          {currentPlan.limits.api.rate.amount} / {currentPlan.limits.api.rate.period}
+                        </div>
+                        {currentPlan.limits.api.rate.description && (
+                          <p className="text-sm text-slate-500 mt-1">
+                            {currentPlan.limits.api.rate.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {currentPlan.limits.api.quota && (
+                      <div className="p-4 rounded-lg bg-slate-50">
+                        <div className="text-sm text-slate-600">API Quota</div>
+                        <div className="text-lg font-medium">
+                          {currentPlan.limits.api.quota.amount} / {currentPlan.limits.api.quota.period}
+                        </div>
+                        {currentPlan.limits.api.quota.description && (
+                          <p className="text-sm text-slate-500 mt-1">
+                            {currentPlan.limits.api.quota.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Other Limits */}
+            {currentPlan.limits?.other_limits && currentPlan.limits.other_limits.length > 0 && (
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-slate-100">
+                      <Server className="h-5 w-5 text-slate-700" />
+                    </div>
+                    <h4 className="font-medium">Other Limits</h4>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {currentPlan.limits.other_limits.map((limit, index) => (
+                      <div key={index} className="p-4 rounded-lg bg-slate-50">
+                        <div className="text-sm text-slate-600">{limit.name}</div>
+                        <div className="text-lg font-medium">{limit.value}</div>
+                        {limit.description && (
+                          <p className="text-sm text-slate-500 mt-1">{limit.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </TabsContent>
+    </Tabs>
   )
 } 

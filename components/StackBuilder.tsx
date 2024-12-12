@@ -6,11 +6,29 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Plus, X, DollarSign, Zap, Search } from "lucide-react"
+import { 
+  Plus, X, DollarSign, Zap, Search, 
+  Clock, Shield, Cloud, Users, Database,
+  TrendingUp, Target, Award, CircleDollarSign,
+  Server, Activity, BarChart2, Box,
+  AlertCircle, AlertTriangle
+} from "lucide-react"
+import { Separator } from "@/components/ui/separator"
 import { ServiceDetails } from "./ServiceDetails"
 import { Badge } from "@/components/ui/badge"
 import { StackAnalytics } from "./StackAnalytics"
-import { Service, SelectedService } from "@/types/service"
+import { Service } from "@/types/service"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { MetricCard } from "@/components/analytics/MetricCard"
+import { UsageBreakdown } from "@/components/analytics/UsageBreakdown"
+import { UsageStatus } from "@/components/analytics/UsageStatus"
+import { extractMetricsFromPlan } from "./analytics/utils"
+import { ServiceMetric } from "@/types/analytics"
+
+interface SelectedService extends Service {
+  selectedPlanIndex: number
+}
 
 interface StackBuilderProps {
   availableServices: Service[]
@@ -53,6 +71,22 @@ export function StackBuilder({
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<SelectedService | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [simulatedMetrics, setSimulatedMetrics] = useState<Record<string, number>>({})
+
+  // Calculate all metrics for selected services
+  const allMetrics = useMemo(() => {
+    return selectedServices.flatMap(service => {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      if (!planState) return []
+      
+      const currentPlan = service.enhanced_data.plans[planState.planIndex]
+      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+      const priorPlan = service.enhanced_data.plans[planState.planIndex - 1]
+      
+      return extractMetricsFromPlan(service, currentPlan, nextPlan, priorPlan)
+    })
+  }, [selectedServices, servicePlans])
 
   useEffect(() => {
     const currentServiceIds = servicePlans.map(sp => sp.serviceId)
@@ -128,9 +162,14 @@ export function StackBuilder({
     return filtered.slice(0, 5);
   }, [availableServices, searchQuery, selectedServices]);
 
-  const handleAddService = (service: Service) => {
-    onServicesChange([...selectedServices, service])
-    setIsDialogOpen(false)
+  const handleAddService = async (service: Service) => {
+    setIsLoading(true)
+    try {
+      onServicesChange([...selectedServices, service])
+      setIsDialogOpen(false)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleRemoveService = (serviceId: string) => {
@@ -165,178 +204,562 @@ export function StackBuilder({
     }
   }
 
+  const handleMetricChange = (serviceId: string, metricId: string, value: number) => {
+    setSimulatedMetrics(prev => ({
+      ...prev,
+      [`${serviceId}-${metricId}`]: value
+    }))
+  }
+
   return (
-    <div className="space-y-8">
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          {/* Stack Summary Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Tech Stack</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="space-y-1">
-                  <div className="text-sm text-slate-600">Monthly Cost</div>
-                  <div className="text-2xl font-bold flex items-center font-mono">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    {totalMonthlyCost}
+    <TooltipProvider>
+      <div className="space-y-8">
+        {/* Main Grid Layout */}
+        <div className="grid gap-8 lg:grid-cols-12">
+          {/* Left Column - Stack Management */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Enhanced Stack Summary Card */}
+            <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-2xl font-bold">Your Tech Stack</CardTitle>
+                    <p className="text-sm text-slate-600 mt-1">Manage and optimize your infrastructure services</p>
+                  </div>
+                  <Button 
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600"
+                    onClick={() => setIsDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Service
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Enhanced Metrics Grid */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <MetricCard
+                    icon={<CircleDollarSign className="h-5 w-5" />}
+                    label="Total Cost"
+                    value={`$${totalMonthlyCost}`}
+                    trend={{
+                      value: 12,
+                      label: "vs. basic tier"
+                    }}
+                    className="bg-gradient-to-br from-blue-50 to-white"
+                  />
+                  <MetricCard
+                    icon={<Users className="h-5 w-5" />}
+                    label="Total Users"
+                    value={calculateTotalUsers(selectedServices, servicePlans)}
+                    percentage={75}
+                    className="bg-gradient-to-br from-green-50 to-white"
+                  />
+                  <MetricCard
+                    icon={<Database className="h-5 w-5" />}
+                    label="Storage Used"
+                    value={calculateTotalStorage(selectedServices, servicePlans)}
+                    percentage={45}
+                    className="bg-gradient-to-br from-purple-50 to-white"
+                  />
+                </div>
+
+                {/* Service Categories */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-4 mb-4 overflow-x-auto pb-2">
+                    <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-slate-100">
+                      All Services
+                    </Badge>
+                    <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-slate-100">
+                      Infrastructure
+                    </Badge>
+                    <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-slate-100">
+                      Security
+                    </Badge>
+                    <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-slate-100">
+                      DevOps Tools
+                    </Badge>
+                    <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-slate-100">
+                      Monitoring
+                    </Badge>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-slate-600">Services</div>
-                  <div className="text-2xl font-bold flex items-center">
-                    <Zap className="h-5 w-5 text-blue-600" />
-                    {selectedServices.length}
+
+                {/* Selected Services List */}
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-3">
+                    {selectedServices.map(service => {
+                      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+                      const isSelected = selectedServiceForDetails?._id === service._id
+                      const planIndex = planState?.planIndex || 0
+                      const currentPlan = service.enhanced_data.plans[planIndex]
+                      const price = getServicePrice(service)
+                      
+                      return (
+                        <ServiceCard
+                          key={service._id}
+                          service={service}
+                          plan={currentPlan}
+                          price={price}
+                          isSelected={isSelected}
+                          onSelect={() => handleServiceSelect(service)}
+                          onRemove={() => handleRemoveService(service._id)}
+                        />
+                      )
+                    })}
                   </div>
-                </div>
-              </div>
+                </ScrollArea>
 
-              {/* Selected Services List */}
-              <div className="space-y-2">
-                {selectedServices.map(service => {
-                  const planState = servicePlans.find(sp => sp.serviceId === service._id)
-                  const isSelected = selectedServiceForDetails?._id === service._id
-                  const planIndex = planState?.planIndex || 0
-                  const price = getServicePrice(service)
-                  
-                  return (
-                    <div 
-                      key={service._id} 
-                      className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all
-                        ${isSelected 
-                          ? 'bg-slate-200 ring-2 ring-slate-400 shadow-md' 
-                          : 'bg-slate-50 hover:bg-slate-100'
-                        }`}
-                      onClick={() => handleServiceSelect(service)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="font-medium">{service.metadata.service_name}</div>
-                        <div className="text-sm text-slate-600">
-                          {service.enhanced_data.plans[planIndex].name.toLowerCase() === 'free' 
-                            ? '' 
-                            : price !== null 
-                              ? `$${price}/mo` 
-                              : 'N/A'
-                          }
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          ({service.enhanced_data.plans[planIndex].name})
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isSelected && (
-                          <Badge variant="secondary" className="mr-2">
-                            Selected
-                          </Badge>
-                        )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRemoveService(service._id)
-                            if (selectedServiceForDetails?._id === service._id) {
-                              setSelectedServiceForDetails(null)
-                            }
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                {selectedServices.length === 0 && (
+                  <EmptyState 
+                    onAdd={() => setIsDialogOpen(true)}
+                  />
+                )}
+              </CardContent>
+            </Card>
 
-              {/* Add Service Button */}
-              <Button 
-                className="w-full mt-4"
-                variant="outline"
-                onClick={() => setIsDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Service
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Service Details - Always show if there are services */}
-          {selectedServices.length > 0 && selectedServiceForDetails && (
-            <ServiceDetails 
-              service={selectedServiceForDetails}
-              selectedPlanIndex={selectedServiceForDetails.selectedPlanIndex}
-              onPlanChange={handlePlanChange}
-            />
-          )}
-        </div>
-
-        <div>
-          <StackAnalytics 
-            services={selectedServices}
-            servicePlans={servicePlans}
-          />
-        </div>
-      </div>
-
-      {/* Service Selection Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
-              Add Service to Stack
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search services..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {filteredServices.map((service: Service) => (
-              <Card 
-                key={service._id} 
-                className="cursor-pointer hover:border-slate-400 transition-colors"
-              >
-                <CardContent 
-                  className="p-4"
-                  onClick={() => handleAddService(service)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">{service.metadata.service_name}</h3>
-                    <div className="text-sm text-slate-600">
-                      From ${getLowestPrice(service)}/mo
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {service.metadata.pricing_types?.map((type: string) => (
-                      <span 
-                        key={type}
-                        className="text-xs px-2 py-0.5 bg-slate-100 text-slate-700 rounded"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </div>
+            {/* Service Details Section with Improved Layout */}
+            {selectedServices.length > 0 && selectedServiceForDetails && (
+              <Card className="border-slate-200">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl">Service Configuration</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ServiceDetails 
+                    service={selectedServiceForDetails}
+                    selectedPlanIndex={selectedServiceForDetails.selectedPlanIndex}
+                    onPlanChange={handlePlanChange}
+                    onMetricChange={(metricId, value) => 
+                      handleMetricChange(selectedServiceForDetails._id, metricId, value)
+                    }
+                    simulatedValues={Object.entries(simulatedMetrics)
+                      .filter(([key]) => key.startsWith(selectedServiceForDetails._id))
+                      .reduce((acc, [key, value]) => ({
+                        ...acc,
+                        [key.split('-')[1]]: value
+                      }), {})}
+                  />
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
 
-          {filteredServices.length === 0 && (
-            <div className="text-center py-8 text-slate-500">
-              No matching services found. Showing random suggestions...
+          {/* Right Column - Usage Analytics and Insights */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Usage Status Overview */}
+            <UsageStatus 
+              services={selectedServices}
+              servicePlans={servicePlans}
+              className="bg-gradient-to-br from-slate-50 to-white"
+            />
+
+            {/* Usage Breakdown */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Usage Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UsageBreakdown 
+                  service={selectedServices[0]}
+                  metrics={extractMetricsFromPlan(
+                    selectedServices[0],
+                    selectedServices[0].enhanced_data.plans[servicePlans[0]?.planIndex || 0]
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Cost Projections */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">Cost Summary</CardTitle>
+                  <Badge variant="outline" className="font-mono">
+                    ${totalMonthlyCost}/mo
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {selectedServices.map(service => {
+                    const price = getServicePrice(service)
+                    const planState = servicePlans.find(sp => sp.serviceId === service._id)
+                    if (!planState) return null
+
+                    const currentPlan = service.enhanced_data.plans[planState.planIndex]
+                    const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+                    const prevPlan = service.enhanced_data.plans[planState.planIndex - 1]
+                    
+                    const usageMetrics = extractMetricsFromPlan(
+                      service, 
+                      currentPlan,
+                      nextPlan,
+                      prevPlan
+                    )
+                    
+                    const hasUsageCharges = usageMetrics.some(m => m.costPerUnit)
+                    const estimatedUsageCost = usageMetrics.reduce((total, metric) => 
+                      total + (metric.value * (metric.costPerUnit || 0)), 0
+                    )
+                    
+                    return (
+                      <div key={service._id} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600">{service.metadata.service_name}</span>
+                          <div className="text-right">
+                            <span className="text-sm font-medium">${price}</span>
+                            {hasUsageCharges && (
+                              <div className="text-xs text-slate-500">
+                                +${estimatedUsageCost.toFixed(2)} usage
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {hasUsageCharges && (
+                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            Variable costs based on usage
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="flex justify-between items-center font-medium">
+                    <span>Total Monthly Cost</span>
+                    <span className="text-lg">${totalMonthlyCost}</span>
+                  </div>
+                  
+                  {/* Projected Costs Warning */}
+                  {selectedServices.some(service => {
+                    const planState = servicePlans.find(sp => sp.serviceId === service._id)
+                    if (!planState) return false
+
+                    const currentPlan = service.enhanced_data.plans[planState.planIndex]
+                    const metrics = extractMetricsFromPlan(service, currentPlan)
+                    
+                    return metrics.some(m => 
+                      m.currentPlanThreshold && 
+                      (m.value / m.currentPlanThreshold) > 0.9
+                    )
+                  }) && (
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                      <div className="flex items-center gap-2 text-sm text-yellow-800">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>Some services may incur additional costs due to usage limits</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Enhanced Service Selection Dialog */}
+        <ServiceSelectionDialog
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filteredServices={filteredServices}
+          onServiceAdd={handleAddService}
+          getLowestPrice={getLowestPrice}
+          isLoading={isLoading}
+        />
+      </div>
+    </TooltipProvider>
+  )
+}
+
+// New Components
+
+function ServiceCard({ service, plan, price, isSelected, onSelect, onRemove }: {
+  service: Service
+  plan: any
+  price: number | null
+  isSelected: boolean
+  onSelect: () => void
+  onRemove: () => void
+}) {
+  const getPricingTypeIcon = (type: string) => {
+    const icons: Record<string, JSX.Element> = {
+      security: <Shield className="h-4 w-4 text-green-500" />,
+      hosting: <Server className="h-4 w-4 text-blue-500" />,
+      monitoring: <Activity className="h-4 w-4 text-orange-500" />,
+      automation: <Zap className="h-4 w-4 text-purple-500" />,
+      analytics: <BarChart2 className="h-4 w-4 text-indigo-500" />
+    }
+    return icons[type.toLowerCase()] || <Box className="h-4 w-4 text-slate-500" />
+  }
+
+  const getPricingTypeDescription = (type: string): string => {
+    const descriptions: Record<string, string> = {
+      fixed: "Fixed monthly or annual pricing",
+      tiered: "Price varies based on usage tiers",
+      usage: "Pay for what you use",
+      "per-user": "Pricing scales with number of users",
+      metered: "Usage-based billing in real-time",
+      security: "Security and compliance features",
+      hosting: "Cloud hosting and infrastructure",
+      monitoring: "System monitoring and alerts",
+      automation: "Process automation tools",
+      analytics: "Data analytics and insights"
+    }
+    return descriptions[type.toLowerCase()] || type
+  }
+
+  return (
+    <div 
+      className={`
+        relative group rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden
+        ${isSelected 
+          ? 'bg-slate-50 border-slate-300 shadow-md' 
+          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
+        }
+      `}
+      onClick={onSelect}
+    >
+      <div className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              {getPricingTypeIcon(service.metadata.pricing_types[0])}
+              <h3 className="font-medium text-slate-900">
+                {service.metadata.service_name}
+              </h3>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                {plan.name}
+              </Badge>
+              {price !== null && (
+                <span className="text-slate-600">${price}/mo</span>
+              )}
+            </div>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemove()
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Service Features */}
+        <div className="mt-3">
+          <div className="flex flex-wrap gap-1.5">
+            {plan.features.highlighted.slice(0, 3).map((feature: string) => (
+              <Tooltip key={feature}>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs bg-white hover:bg-slate-50"
+                  >
+                    {feature}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">{feature}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            {plan.features.highlighted.length > 3 && (
+              <Badge 
+                variant="outline" 
+                className="text-xs bg-white hover:bg-slate-50"
+              >
+                +{plan.features.highlighted.length - 3} more
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Service Types */}
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {service.metadata.pricing_types.map(type => (
+            <Tooltip key={type}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 text-xs text-slate-600">
+                  {getPricingTypeIcon(type)}
+                  <span>{type}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">{getPricingTypeDescription(type)}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+      
+      {/* Selection Indicator */}
+      {isSelected && (
+        <div className="absolute inset-y-0 left-0 w-1 bg-blue-500" />
+      )}
     </div>
   )
+}
+
+function EmptyState({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="text-center py-12">
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 mb-4">
+        <Plus className="h-6 w-6 text-blue-500" />
+      </div>
+      <h3 className="text-lg font-medium text-slate-900 mb-2">
+        Build Your Tech Stack
+      </h3>
+      <p className="text-sm text-slate-600 mb-4">
+        Start by adding services to create your perfect technology stack
+      </p>
+      <Button onClick={onAdd}>
+        Add Your First Service
+      </Button>
+    </div>
+  )
+}
+
+function ServiceSelectionDialog({ 
+  isOpen, 
+  onClose, 
+  searchQuery, 
+  onSearchChange,
+  filteredServices,
+  onServiceAdd,
+  getLowestPrice,
+  isLoading
+}: {
+  isOpen: boolean
+  onClose: () => void
+  searchQuery: string
+  onSearchChange: (query: string) => void
+  filteredServices: Service[]
+  onServiceAdd: (service: Service) => void
+  getLowestPrice: (service: Service) => number
+  isLoading?: boolean
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Add Service to Stack</DialogTitle>
+        </DialogHeader>
+        
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Search services..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {filteredServices.map((service) => (
+            <ServiceOption
+              key={service._id}
+              service={service}
+              lowestPrice={getLowestPrice(service)}
+              onSelect={() => onServiceAdd(service)}
+              isLoading={isLoading}
+            />
+          ))}
+        </div>
+
+        {filteredServices.length === 0 && (
+          <div className="text-center py-8 text-slate-500">
+            No matching services found
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ServiceOption({ 
+  service, 
+  lowestPrice, 
+  onSelect, 
+  isLoading 
+}: { 
+  service: Service
+  lowestPrice: number
+  onSelect: () => void
+  isLoading?: boolean
+}) {
+  return (
+    <Card 
+      className={`
+        cursor-pointer hover:border-slate-400 transition-all duration-200
+        ${isLoading ? 'opacity-50 pointer-events-none' : ''}
+      `}
+      onClick={onSelect}
+    >
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="font-medium mb-1">{service.metadata.service_name}</h3>
+            <div className="text-sm text-slate-600">
+              From ${lowestPrice}/mo
+            </div>
+          </div>
+          <Plus className="h-4 w-4 text-slate-400" />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {service.metadata.pricing_types?.map((type) => (
+            <Badge 
+              key={type}
+              variant="secondary"
+              className="bg-slate-100 text-slate-700"
+            >
+              {type}
+            </Badge>
+          ))}
+        </div>
+
+        {service.enhanced_data.market_insights?.target_market && (
+          <div className="mt-3 text-xs text-slate-500">
+            {service.enhanced_data.market_insights.target_market}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Helper functions for metrics
+function calculateTotalUsers(services: Service[], servicePlans: Array<{ serviceId: string; planIndex: number }>) {
+  let total = 0
+  services.forEach(service => {
+    const planState = servicePlans.find(sp => sp.serviceId === service._id)
+    const plan = service.enhanced_data.plans[planState?.planIndex || 0]
+    if (plan.limits?.users?.max) {
+      total += plan.limits.users.max
+    }
+  })
+  return total > 0 ? `${total} seats` : 'Unlimited'
+}
+
+function calculateTotalStorage(services: Service[], servicePlans: Array<{ serviceId: string; planIndex: number }>) {
+  let total = 0
+  services.forEach(service => {
+    const planState = servicePlans.find(sp => sp.serviceId === service._id)
+    const plan = service.enhanced_data.plans[planState?.planIndex || 0]
+    if (plan.limits?.storage?.amount) {
+      total += plan.limits.storage.amount
+    }
+  })
+  return total > 0 ? `${total}GB` : 'N/A'
 } 

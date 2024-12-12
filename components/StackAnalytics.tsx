@@ -1,201 +1,419 @@
 // components/StackAnalytics.tsx
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Service } from "@/types/service"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { extractMetricsFromPlan } from "./analytics/utils"
+import { ServiceMetric } from "@/types/analytics"
+import { motion } from "framer-motion"
 import { 
-  Bar, 
-  BarChart, 
-  CartesianGrid, 
-  XAxis, 
-  YAxis, 
+  DollarSign, TrendingUp, AlertTriangle, 
+  Users, Database, Zap, Server,
+  PieChart, BarChart2, LineChart
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Label
-} from "recharts"
-import { Service } from "@/types/service"
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend
+} from 'recharts'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface StackAnalyticsProps {
-  services: Service[];
+  services: Service[]
   servicePlans: Array<{
-    serviceId: string;
-    planIndex: number;
-  }>;
+    serviceId: string
+    planIndex: number
+  }>
 }
 
-interface ServicePriceInfo {
-  name: string;
-  displayName: string;
-  cost: number;
-  hasPrice: boolean;
-  isFreeTier: boolean;
+interface CostBreakdown {
+  serviceName: string
+  baseCost: number
+  usageCost: number
+  overageCost: number
+  total: number
+  details?: {
+    usageItems: Array<{
+      name: string
+      cost: number
+      unit: string
+      quantity: number
+      rate: number
+    }>
+    overageItems: Array<{
+      name: string
+      cost: number
+      exceeded: number
+      limit: number
+      unit: string
+    }>
+  }
 }
 
-const MAX_SERVICE_NAME_LENGTH = 20;
-
-const truncateText = (text: string, maxLength: number) => {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength)}...`;
-};
+const COLORS = {
+  base: '#3b82f6',
+  usage: '#10b981',
+  overage: '#ef4444',
+  storage: '#8b5cf6',
+  users: '#3b82f6',
+  api: '#f59e0b',
+  other: '#6b7280'
+}
 
 export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) {
-  const getServicePrice = (service: Service): number | null => {
+  // Calculate detailed cost breakdown for each service
+  const costBreakdowns = services.map<CostBreakdown>(service => {
     const planState = servicePlans.find(sp => sp.serviceId === service._id)
-    const price = service.enhanced_data.plans[planState?.planIndex || 0]?.pricing?.monthly?.base_price
-    return price || null;
-  };
+    if (!planState) return {
+      serviceName: service.metadata.service_name,
+      baseCost: 0,
+      usageCost: 0,
+      overageCost: 0,
+      total: 0
+    }
 
-  const chartData: ServicePriceInfo[] = services
-    .map(service => {
-      const planState = servicePlans.find(sp => sp.serviceId === service._id)
-      const plan = service.enhanced_data.plans[planState?.planIndex || 0]
-      const price = getServicePrice(service);
-      return {
-        name: service.metadata.service_name,
-        displayName: truncateText(service.metadata.service_name, MAX_SERVICE_NAME_LENGTH),
-        cost: price || 0,
-        hasPrice: price !== null,
-        isFreeTier: plan.isFreeTier || false
-      };
-    })
-    .sort((a, b) => b.cost - a.cost);
+    const currentPlan = service.enhanced_data.plans[planState.planIndex]
+    const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+    const metrics = extractMetricsFromPlan(service, currentPlan, nextPlan)
+    
+    const baseCost = currentPlan.pricing?.monthly?.base_price || 0
+    
+    const usageItems = metrics
+      .filter(m => m.costPerUnit && m.value > 0)
+      .map(m => ({
+        name: m.name,
+        cost: m.value * (m.costPerUnit || 0),
+        unit: m.unit || 'units',
+        quantity: m.value,
+        rate: m.costPerUnit || 0
+      }))
+    
+    const overageItems = metrics
+      .filter(m => m.currentPlanThreshold && m.value > m.currentPlanThreshold)
+      .map(m => ({
+        name: m.name,
+        cost: Math.max(0, m.value - (m.currentPlanThreshold || 0)) * (m.costPerUnit || 0),
+        exceeded: m.value - (m.currentPlanThreshold || 0),
+        limit: m.currentPlanThreshold || 0,
+        unit: m.unit || 'units'
+      }))
 
-  const totalCost = chartData
-    .filter(item => item.hasPrice)
-    .reduce((sum, item) => sum + item.cost, 0);
+    const usageCost = usageItems.reduce((sum, item) => sum + item.cost, 0)
+    const overageCost = overageItems.reduce((sum, item) => sum + item.cost, 0)
 
-  if (services.length === 0) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center text-slate-500">
-              Add services to your stack to see cost analysis
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return {
+      serviceName: service.metadata.service_name,
+      baseCost,
+      usageCost,
+      overageCost,
+      total: baseCost + usageCost + overageCost,
+      details: {
+        usageItems,
+        overageItems
+      }
+    }
+  })
+
+  const totalCosts = {
+    base: costBreakdowns.reduce((sum, s) => sum + s.baseCost, 0),
+    usage: costBreakdowns.reduce((sum, s) => sum + s.usageCost, 0),
+    overage: costBreakdowns.reduce((sum, s) => sum + s.overageCost, 0),
+    total: costBreakdowns.reduce((sum, s) => sum + s.total, 0)
   }
+
+  // Prepare data for visualizations
+  const costDistributionData = [
+    { name: 'Base Plans', value: totalCosts.base },
+    { name: 'Usage Costs', value: totalCosts.usage },
+    { name: 'Overage Costs', value: totalCosts.overage }
+  ]
+
+  // Group metrics by type
+  const allMetrics = services.flatMap(service => {
+    const planState = servicePlans.find(sp => sp.serviceId === service._id)
+    if (!planState) return []
+
+    const currentPlan = service.enhanced_data.plans[planState.planIndex]
+    const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+    return extractMetricsFromPlan(service, currentPlan, nextPlan)
+  })
+
+  const metricsByType = allMetrics.reduce<Record<string, ServiceMetric[]>>(
+    (acc, metric) => {
+      const type = metric.type || 'other'
+      if (!acc[type]) acc[type] = []
+      acc[type].push(metric)
+      return acc
+    },
+    {}
+  )
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Stack Cost Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px] mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={chartData} 
-                layout="vertical"
-                margin={{ top: 5, right: 5, left: 80, bottom: 5 }}
-              >
-                <CartesianGrid 
-                  strokeDasharray="3 3" 
-                  horizontal={false}
-                  stroke="#e5e7eb"
-                />
-                <XAxis 
-                  type="number"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={12}
-                  tickMargin={4}
-                  tick={{ fill: '#6b7280' }}
-                  tickFormatter={(value) => `$${value}`}
-                >
-                  <Label
-                    value="Monthly Cost"
-                    position="bottom"
-                    offset={-4}
-                    style={{ textAnchor: 'middle', fill: '#6b7280', fontSize: 11 }}
-                  />
-                </XAxis>
-                <YAxis 
-                  type="category"
-                  dataKey="displayName"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={12}
-                  tickMargin={4}
-                  width={75}
-                  tick={{ fill: '#6b7280' }}
-                />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (active && payload?.[0]?.value) {
-                      const service = chartData.find(s => s.displayName === label);
-                      return (
-                        <div className="bg-white p-3 shadow-lg rounded-lg border">
-                          <p className="font-medium text-sm mb-1">{service?.name}</p>
-                          <p className="text-sm text-slate-600">
-                            Cost: <span className="font-mono">${payload[0].value}</span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {((Number(payload[0].value) / totalCost) * 100).toFixed(1)}% of total
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                />
-                <Bar 
-                  dataKey="cost" 
-                  fill="hsl(var(--chart-1))"
-                  radius={[0, 4, 4, 0]}
-                  maxBarSize={24}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cost Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+      {/* Cost Overview Card */}
+      <Card className="p-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-slate-600">Total Monthly Cost</div>
-              <div className="text-3xl font-bold font-mono">${totalCost}</div>
+              <h3 className="text-lg font-semibold">Cost Summary</h3>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Estimated monthly costs for your tech stack
+              </p>
             </div>
-            {chartData.length > 0 && (
-              <div>
-                <div className="text-sm text-slate-600">Cost Breakdown</div>
-                <div className="space-y-2 mt-2">
-                  {chartData.map(item => (
-                    <div 
-                      key={item.name} 
-                      className="flex justify-between items-center p-2 rounded hover:bg-slate-50"
-                      title={item.name}
-                    >
-                      <div className="space-y-1">
-                        <span className="text-sm font-medium">{item.displayName}</span>
-                        <div className="text-xs text-slate-500">
-                          {((item.cost / totalCost) * 100).toFixed(1)}% of total
-                        </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">
+                ${totalCosts.total.toFixed(2)}
+                <span className="text-sm font-normal text-slate-500">/mo</span>
+              </div>
+              {totalCosts.overage > 0 && (
+                <div className="text-sm text-red-600 flex items-center gap-1 justify-end">
+                  <AlertTriangle className="h-4 w-4" />
+                  ${totalCosts.overage.toFixed(2)} in overage charges
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Cost Distribution */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
+              <div className="text-sm font-medium text-blue-700">Base Plans</div>
+              <div className="text-xl font-bold text-blue-900 mt-1">
+                ${totalCosts.base.toFixed(2)}
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-green-50 border border-green-100">
+              <div className="text-sm font-medium text-green-700">Usage-Based</div>
+              <div className="text-xl font-bold text-green-900 mt-1">
+                ${totalCosts.usage.toFixed(2)}
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-red-50 border border-red-100">
+              <div className="text-sm font-medium text-red-700">Overage Charges</div>
+              <div className="text-xl font-bold text-red-900 mt-1">
+                ${totalCosts.overage.toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          {/* Service Breakdown */}
+          <div className="space-y-4">
+            {costBreakdowns.map(service => (
+              <Collapsible key={service.serviceName}>
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-slate-100">
+                        <Server className="h-5 w-5 text-slate-600" />
                       </div>
-                      <div className="text-sm font-mono font-medium">
-                        {item.isFreeTier 
-                          ? 'Free'
-                          : item.hasPrice 
-                            ? `$${item.cost}` 
-                            : 'N/A'
-                        }
+                      <div>
+                        <div className="font-medium">{service.serviceName}</div>
+                        <div className="text-sm text-slate-500">
+                          Base Plan + {service.details?.usageItems.length || 0} usage-based features
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <div className="text-right">
+                      <div className="font-medium">${service.total.toFixed(2)}</div>
+                      {service.overageCost > 0 && (
+                        <div className="text-sm text-red-600">
+                          +${service.overageCost.toFixed(2)} overage
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <div className="space-y-4 mt-2 pl-12">
+                      {/* Base Cost */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">Base Plan</span>
+                        <span className="font-medium">${service.baseCost.toFixed(2)}</span>
+                      </div>
+
+                      {/* Usage-Based Costs */}
+                      {service.details?.usageItems.map((item, i) => (
+                        <div key={i} className="space-y-1">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600">{item.name}</span>
+                            <span className="font-medium">${item.cost.toFixed(2)}</span>
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {item.quantity.toLocaleString()} {item.unit} × ${item.rate}/unit
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Overage Costs */}
+                      {service.details?.overageItems.map((item, i) => (
+                        <div key={i} className="space-y-1">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-red-600">{item.name} (Overage)</span>
+                            <span className="font-medium text-red-600">
+                              +${item.cost.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-red-500">
+                            Exceeded by {item.exceeded.toLocaleString()} {item.unit}
+                            (Limit: {item.limit.toLocaleString()})
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
           </div>
-        </CardContent>
+        </div>
       </Card>
+
+      {/* Resource Usage Analysis */}
+      <Card className="p-6">
+        <Tabs defaultValue="overview">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="storage">Storage</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="api">API Usage</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <div className="space-y-6">
+              {Object.entries(metricsByType).map(([type, metrics]) => {
+                const color = COLORS[type as keyof typeof COLORS] || COLORS.other
+                const totalUsage = metrics.reduce((sum, m) => sum + m.value, 0)
+                const totalLimit = metrics.reduce((sum, m) => sum + (m.currentPlanThreshold || 0), 0)
+                const percentage = totalLimit ? (totalUsage / totalLimit) * 100 : 0
+
+                return (
+                  <div key={type} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          type === 'storage' && "bg-purple-100",
+                          type === 'users' && "bg-blue-100",
+                          type === 'api' && "bg-yellow-100",
+                          type === 'other' && "bg-slate-100"
+                        )}>
+                          {type === 'storage' && <Database className="h-5 w-5" />}
+                          {type === 'users' && <Users className="h-5 w-5" />}
+                          {type === 'api' && <Zap className="h-5 w-5" />}
+                          {type === 'other' && <Server className="h-5 w-5" />}
+                        </div>
+                        <span className="font-medium capitalize">{type}</span>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          percentage > 90 && "bg-red-50 text-red-700",
+                          percentage > 75 && percentage <= 90 && "bg-yellow-50 text-yellow-700",
+                          percentage <= 75 && "bg-green-50 text-green-700"
+                        )}
+                      >
+                        {percentage.toFixed(1)}% utilized
+                      </Badge>
+                    </div>
+                    <Progress 
+                      value={percentage} 
+                      className={cn(
+                        "h-2",
+                        percentage > 90 && "bg-red-100 [&>div]:bg-red-500",
+                        percentage > 75 && percentage <= 90 && "bg-yellow-100 [&>div]:bg-yellow-500",
+                        percentage <= 75 && "bg-green-100 [&>div]:bg-green-500"
+                      )}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="storage">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricsByType.storage || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="serviceName" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={COLORS.storage} name="Current Usage" />
+                  <Bar dataKey="currentPlanThreshold" fill={COLORS.base} name="Limit" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricsByType.users || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="serviceName" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={COLORS.users} name="Current Usage" />
+                  <Bar dataKey="currentPlanThreshold" fill={COLORS.base} name="Limit" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="api">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricsByType.api || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="serviceName" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={COLORS.api} name="Current Usage" />
+                  <Bar dataKey="currentPlanThreshold" fill={COLORS.base} name="Limit" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </Card>
+
+      {/* Cost Optimization Recommendations */}
+      {totalCosts.overage > 0 && (
+        <Card className="p-6 border-yellow-200 bg-yellow-50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-1" />
+            <div>
+              <h4 className="font-medium text-yellow-900">Cost Optimization Opportunities</h4>
+              <div className="mt-2 space-y-2">
+                {costBreakdowns
+                  .filter(s => s.overageCost > 0)
+                  .map(service => (
+                    <div key={service.serviceName} className="text-sm text-yellow-800">
+                      Consider upgrading {service.serviceName} to avoid ${service.overageCost.toFixed(2)} in overage charges
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   )
 } 
