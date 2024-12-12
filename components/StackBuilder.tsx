@@ -18,7 +18,6 @@ import { Service } from "@/types/service"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { MetricCard } from "@/components/analytics/MetricCard"
-import { extractMetricsFromPlan } from "./analytics/utils"
 import { extractServiceMetrics } from "@/utils/metrics"
 
 interface SelectedService extends Service {
