@@ -19,7 +19,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { MetricCard } from "@/components/analytics/MetricCard"
 import { extractMetricsFromPlan } from "./analytics/utils"
-import { ServiceMetric } from "@/types/analytics"
 import { extractServiceMetrics } from "@/utils/metrics"
 
 interface SelectedService extends Service {
@@ -124,7 +123,7 @@ export function StackBuilder({
     }
   };
 
-  const totalMonthlyCost = selectedServices.reduce((total, service) => {
+  const _totalMonthlyCost = selectedServices.reduce((total, service) => {
     const price = getServicePrice(service)
     return total + (price ?? 0)
   }, 0)

@@ -529,7 +529,7 @@ export function ServiceDetails({
                     Available in {nextPlan.name}
                   </h3>
                   <p className="text-sm text-green-700">
-                    Additional features you'll get by upgrading
+                    Additional features youll get by upgrading
                   </p>
                 </div>
                 <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
