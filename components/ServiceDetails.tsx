@@ -189,8 +189,8 @@ function getFeatureIcon(featureName: string): JSX.Element {
   return <Box className="h-4 w-4" />
 }
 
-// Add utility function at the top
-const isValidArray = (arr: any): arr is any[] => {
+// Update the utility function with proper typing
+const isValidArray = <T,>(arr: T[] | undefined | null): arr is T[] => {
   return Array.isArray(arr) && arr.length > 0
 }
 

@@ -51,7 +51,7 @@ const hasCompetitiveDisadvantages = (service: Service): boolean => {
     Array.isArray(service.enhanced_data.competitive_positioning?.competitive_disadvantages)
 }
 
-const isValidArray = (arr: any): arr is any[] => {
+const isValidArray = <T,>(arr: T[] | undefined | null): arr is T[] => {
   return Array.isArray(arr) && arr.length > 0
 }
 
