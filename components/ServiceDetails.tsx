@@ -36,20 +36,6 @@ interface ServiceDetailsProps {
   simulatedValues?: Record<string, number>
 }
 
-interface PlanFeatureCategory {
-  name: string
-  icon: JSX.Element
-  features: Array<{
-    name: string
-    description?: string | undefined
-  }>
-}
-
-// Add type guard
-function isValidFeature(feature: { name?: string; description?: string }): feature is { name: string; description?: string } {
-  return typeof feature === 'object' && feature !== null && typeof feature.name === 'string';
-}
-
 // Add this before the MetricCard component
 function calculateOverageCost(metric: UsageMetric): number | null {
   if (!metric.currentPlanThreshold) return null

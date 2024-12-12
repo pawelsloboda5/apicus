@@ -8,12 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { 
   Plus, X, Search, 
-  Users, Database,
-  CircleDollarSign,
-  Server, Activity, BarChart2, Box,
-  Shield, Zap
+  Server, Shield, Activity, 
+  CircleDollarSign, Users, Database, Zap, BarChart2, Box
 } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
 import { ServiceDetails } from "./ServiceDetails"
 import { Badge } from "@/components/ui/badge"
 import { StackAnalytics } from "./StackAnalytics"
@@ -23,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { MetricCard } from "@/components/analytics/MetricCard"
 import { extractMetricsFromPlan } from "./analytics/utils"
 import { ServiceMetric } from "@/types/analytics"
-import { extractServiceMetrics, calculateOverageCost } from "@/utils/metrics"
+import { extractServiceMetrics } from "@/utils/metrics"
 
 interface SelectedService extends Service {
   selectedPlanIndex: number

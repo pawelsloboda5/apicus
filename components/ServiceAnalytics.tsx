@@ -14,20 +14,14 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   AreaChart,
-  Area,
-  LineChart,
-  Line
+  Area
 } from 'recharts'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMemo } from "react"
 
 interface ServiceAnalyticsProps {

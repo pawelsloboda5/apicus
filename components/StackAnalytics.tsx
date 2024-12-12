@@ -8,27 +8,22 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractMetricsFromPlan } from "./analytics/utils"
 import { ServiceMetric } from "@/types/analytics"
-import { motion } from "framer-motion"
 import { 
-  DollarSign, TrendingUp, AlertTriangle, 
-  Users, Database, Zap, Server,
-  PieChart, BarChart2, LineChart
+  AlertTriangle, 
+  Server,
+  Database,
+  Users,
+  Zap
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  LineChart as RechartsLineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
   BarChart,
-  Bar,
-  Legend
+  Bar
 } from 'recharts'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useMemo } from "react"

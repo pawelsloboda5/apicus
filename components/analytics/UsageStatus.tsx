@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils"
 import { ServiceMetric } from "@/types/analytics"
 import { extractMetricsFromPlan } from "./utils"
 import { Service } from "@/types/service"
-import { useMemo } from "react"
 
 // Extend the ServiceMetric type locally
 interface ExtendedServiceMetric extends ServiceMetric {
