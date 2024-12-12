@@ -182,14 +182,15 @@ export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }
   }, [service, currentPlan, nextPlan, allMetrics])
 
   return (
-    <div className="space-y-6">
-      {/* Resource Utilization Overview */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+    <div className="space-y-8">
+      {/* Top Summary Section */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
+        {/* Cost Overview Card - Spans 4 columns on large screens */}
+        <Card className="lg:col-span-4 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="font-semibold text-blue-900">Total Cost</h3>
-              <div className="mt-2 text-2xl font-bold text-blue-700">
+              <div className="mt-2 text-3xl font-bold text-blue-700">
                 ${costBreakdown.total.toFixed(2)}
                 <span className="text-sm font-normal text-blue-600">/mo</span>
               </div>
@@ -205,131 +206,133 @@ export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }
             </div>
           </div>
           
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <div className="p-2 rounded bg-white/60">
-              <div className="text-blue-600">Base Plan</div>
-              <div className="font-semibold">${costBreakdown.baseCost.toFixed(2)}</div>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-white/80 shadow-sm">
+              <div className="text-blue-600 text-sm">Base Plan</div>
+              <div className="font-semibold text-lg">${costBreakdown.baseCost.toFixed(2)}</div>
             </div>
-            <div className="p-2 rounded bg-white/60">
-              <div className="text-blue-600">Usage Cost</div>
-              <div className="font-semibold">${(costBreakdown.usageCost + costBreakdown.overageCost).toFixed(2)}</div>
+            <div className="p-3 rounded-lg bg-white/80 shadow-sm">
+              <div className="text-blue-600 text-sm">Usage Cost</div>
+              <div className="font-semibold text-lg">${(costBreakdown.usageCost + costBreakdown.overageCost).toFixed(2)}</div>
             </div>
           </div>
         </Card>
 
-        {/* Resource Cards */}
-        {Object.entries(metricsByType).map(([type, metrics]) => {
-          const category = METRIC_CATEGORIES[type as keyof typeof METRIC_CATEGORIES]
-          if (!category) return null
+        {/* Resource Overview Cards - Spans 8 columns on large screens */}
+        <div className="lg:col-span-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Object.entries(metricsByType).map(([type, metrics]) => {
+            const category = METRIC_CATEGORIES[type as keyof typeof METRIC_CATEGORIES]
+            if (!category) return null
 
-          const totalUsage = metrics.reduce((sum, m) => sum + m.value, 0)
-          const totalLimit = metrics.reduce((sum, m) => sum + (m.currentPlanThreshold || 0), 0)
-          const percentage = totalLimit ? (totalUsage / totalLimit) * 100 : 0
+            const totalUsage = metrics.reduce((sum, m) => sum + m.value, 0)
+            const totalLimit = metrics.reduce((sum, m) => sum + (m.currentPlanThreshold || 0), 0)
+            const percentage = totalLimit ? (totalUsage / totalLimit) * 100 : 0
 
-          return (
-            <Card key={type} className="p-6 relative overflow-hidden">
-              <div className="relative z-10">
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    `bg-${type}-100`
-                  )}>
-                    {category.icon}
-                  </div>
-                  <h3 className="font-semibold">{category.label}</h3>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-600">Utilization</span>
-                    <span className={cn(
-                      "font-medium",
-                      percentage > 90 ? "text-red-600" :
-                      percentage > 75 ? "text-yellow-600" :
-                      "text-green-600"
+            return (
+              <Card key={type} className="relative overflow-hidden hover:shadow-md transition-shadow">
+                <div className="p-4 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      `bg-${type}-100`
                     )}>
-                      {percentage.toFixed(1)}%
-                    </span>
+                      {category.icon}
+                    </div>
+                    <h3 className="font-medium text-sm">{category.label}</h3>
                   </div>
-                  <Progress 
-                    value={percentage} 
-                    className={cn(
-                      "h-2",
-                      percentage > 90 ? "bg-red-100 [&>div]:bg-red-500" :
-                      percentage > 75 ? "bg-yellow-100 [&>div]:bg-yellow-500" :
-                      "bg-blue-100 [&>div]:bg-blue-500"
-                    )}
-                  />
-                </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <div className="text-slate-600">Current</div>
-                    <div className="font-medium">{totalUsage.toLocaleString()}</div>
+                  <div className="mt-3">
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="text-slate-600">Utilization</span>
+                      <span className={cn(
+                        "font-medium",
+                        percentage > 90 ? "text-red-600" :
+                        percentage > 75 ? "text-yellow-600" :
+                        "text-green-600"
+                      )}>
+                        {percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={percentage} 
+                      className={cn(
+                        "h-1.5",
+                        percentage > 90 ? "bg-red-100 [&>div]:bg-red-500" :
+                        percentage > 75 ? "bg-yellow-100 [&>div]:bg-yellow-500" :
+                        "bg-blue-100 [&>div]:bg-blue-500"
+                      )}
+                    />
                   </div>
-                  <div>
-                    <div className="text-slate-600">Limit</div>
-                    <div className="font-medium">{totalLimit.toLocaleString()}</div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="text-slate-500">Current</div>
+                      <div className="font-medium mt-0.5">{totalUsage.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">Limit</div>
+                      <div className="font-medium mt-0.5">{totalLimit.toLocaleString()}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              {/* Background Pattern */}
-              <div 
-                className="absolute inset-0 opacity-[0.03]" 
-                style={{ 
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415L51.8 0h2.827zM5.373 0l-.83.828L5.96 2.243 8.2 0H5.374zM48.97 0l3.657 3.657-1.414 1.414L46.143 0h2.828zM11.03 0L7.372 3.657 8.787 5.07 13.857 0H11.03zm32.284 0L49.8 6.485 48.384 7.9l-7.9-7.9h2.83zM16.686 0L10.2 6.485 11.616 7.9l7.9-7.9h-2.83zM22.344 0L13.858 8.485 15.272 9.9l7.9-7.9h-.828zm5.656 0L19.515 8.485 17.343 10.657 28 0h-2.83zM32.656 0L26.172 6.485 24 8.657 34.657 0h-2zM44.97 0L40.5 4.472 42.672 6.644l6.644-6.644h-2.83zM39.313 0L42.97 3.657 40.8 5.828 34.156 0h2.83zM56 0L58.172 2.172 56 4.344V0zM0 2.172L2.172 0h2.172L0 4.344V2.172zM8.485 0h2.172L14.828 4.17 10.657 8.343 8.485 0zm17.657 0h2.172L34.656 6.343 30.485 10.514 26.142 0zM46.828 0h2.172L56 6.344 51.828 10.514 46.828 0zM2.172 0L0 5.172V0h2.172zM0 8.485L5.172 0h2.172L0 14.657V8.485zm0 5.657L8.485 0h2.172L0 20.314v-6.172zm0 5.657L14.142 0h2.172L0 25.97v-6.17zm0 5.657L19.8 0h2.172L0 31.627v-6.17zm0 5.657L25.456 0h2.172L0 37.285v-6.17zm0 5.657L31.113 0h2.172L0 42.942v-6.17zm0 5.657L36.77 0h2.172L0 48.6v-6.17zm0 5.657L42.428 0h2.172L0 54.257v-6.17zm0 5.657L48.085 0h2.172L0 59.914v-6.17zm0 5.657L53.742 0h2.172L0 60v-4.343zM60 14.828L45.172 0h-2.172L60 8.657v6.17zm0-5.656L39.515 0h-2.172L60 2.828v6.344zm0-5.657L33.858 0h-2.172L60 0v3.515zm0 17.142L50.828 0h-2.172L60 20.485v-5.656zM39.515 0L60 26.172v5.657L33.858 0h5.657zm11.313 0L60 31.828v5.657L45.172 0h5.656zm5.657 0L60 37.485v5.657L50.828 0h5.657zm-22.627 0L60 43.142v5.657L39.515 0h5.656zm11.313 0L60 48.8v5.657L45.172 0h5.656zm5.657 0L60 54.456v5.657L50.828 0h5.657zm-22.627 0L60 60v-5.657L39.515 0h5.656z' fill='%23000000' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E")`
-                }}
-              />
-            </Card>
-          )
-        })}
+                
+                {/* Background Pattern */}
+                <div 
+                  className="absolute inset-0 opacity-[0.03]" 
+                  style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415L51.8 0h2.827zM5.373 0l-.83.828L5.96 2.243 8.2 0H5.374zM48.97 0l3.657 3.657-1.414 1.414L46.143 0h2.828zM11.03 0L7.372 3.657 8.787 5.07 13.857 0H11.03zm32.284 0L49.8 6.485 48.384 7.9l-7.9-7.9h2.83zM16.686 0L10.2 6.485 11.616 7.9l7.9-7.9h-2.83zM22.344 0L13.858 8.485 15.272 9.9l7.9-7.9h-.828zm5.656 0L19.515 8.485 17.343 10.657 28 0h-2.83zM32.656 0L26.172 6.485 24 8.657 34.657 0h-2zM44.97 0L40.5 4.472 42.672 6.644l6.644-6.644h-2.83zM39.313 0L42.97 3.657 40.8 5.828 34.156 0h2.83zM56 0L58.172 2.172 56 4.344V0zM0 2.172L2.172 0h2.172L0 4.344V2.172zM8.485 0h2.172L14.828 4.17 10.657 8.343 8.485 0zm17.657 0h2.172L34.656 6.343 30.485 10.514 26.142 0zM46.828 0h2.172L56 6.344 51.828 10.514 46.828 0zM2.172 0L0 5.172V0h2.172zM0 8.485L5.172 0h2.172L0 14.657V8.485zm0 5.657L8.485 0h2.172L0 20.314v-6.172zm0 5.657L14.142 0h2.172L0 25.97v-6.17zm0 5.657L19.8 0h2.172L0 31.627v-6.17zm0 5.657L25.456 0h2.172L0 37.285v-6.17zm0 5.657L31.113 0h2.172L0 42.942v-6.17zm0 5.657L36.77 0h2.172L0 48.6v-6.17zm0 5.657L42.428 0h2.172L0 54.257v-6.17zm0 5.657L48.085 0h2.172L0 59.914v-6.17zm0 5.657L53.742 0h2.172L0 60v-4.343zM60 14.828L45.172 0h-2.172L60 8.657v6.17zm0-5.656L39.515 0h-2.172L60 2.828v6.344zm0-5.657L33.858 0h-2.172L60 0v3.515zm0 17.142L50.828 0h-2.172L60 20.485v-5.656zM39.515 0L60 26.172v5.657L33.858 0h5.657zm11.313 0L60 31.828v5.657L45.172 0h5.656zm5.657 0L60 37.485v5.657L50.828 0h5.657zm-22.627 0L60 43.142v5.657L39.515 0h5.656zm11.313 0L60 48.8v5.657L45.172 0h5.656zm5.657 0L60 54.456v5.657L50.828 0h5.657zm-22.627 0L60 60v-5.657L39.515 0h5.656z' fill='%23000000' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E")`
+                  }}
+                />
+              </Card>
+            )
+          })}
+        </div>
       </div>
 
       {/* Detailed Analysis Tabs */}
       <Card className="p-6">
         <Tabs defaultValue="metrics" className="space-y-6">
-          <TabsList className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <TabsTrigger value="metrics" className="gap-2">
-              <Activity className="h-4 w-4" />
+          <TabsList className="inline-flex h-auto p-1 bg-slate-100 rounded-lg space-x-2">
+            <TabsTrigger value="metrics" className="px-4 py-2 rounded-md data-[state=active]:bg-white">
+              <Activity className="h-4 w-4 mr-2" />
               Metrics
             </TabsTrigger>
-            <TabsTrigger value="resources" className="gap-2">
-              <CpuIcon className="h-4 w-4" />
+            <TabsTrigger value="resources" className="px-4 py-2 rounded-md data-[state=active]:bg-white">
+              <CpuIcon className="h-4 w-4 mr-2" />
               Resources
             </TabsTrigger>
-            <TabsTrigger value="costs" className="gap-2">
-              <DollarSign className="h-4 w-4" />
+            <TabsTrigger value="costs" className="px-4 py-2 rounded-md data-[state=active]:bg-white">
+              <DollarSign className="h-4 w-4 mr-2" />
               Cost Analysis
             </TabsTrigger>
-            <TabsTrigger value="optimization" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
+            <TabsTrigger value="optimization" className="px-4 py-2 rounded-md data-[state=active]:bg-white">
+              <TrendingUp className="h-4 w-4 mr-2" />
               Optimization
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="metrics">
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Metric Groups */}
               {Object.entries(metricsByType).map(([type, metrics]) => (
                 <div key={type} className="space-y-4">
-                  <h4 className="font-medium flex items-center gap-2">
+                  <h4 className="font-medium flex items-center gap-2 text-lg">
                     {METRIC_CATEGORIES[type as keyof typeof METRIC_CATEGORIES]?.icon}
                     {METRIC_CATEGORIES[type as keyof typeof METRIC_CATEGORIES]?.label}
                   </h4>
                   
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {metrics.map(metric => {
                       const percentage = metric.currentPlanThreshold 
                         ? (metric.value / metric.currentPlanThreshold) * 100 
                         : 0
 
                       return (
-                        <div key={metric.id} className="p-4 rounded-lg bg-slate-50">
+                        <Card key={metric.id} className="p-4 hover:shadow-md transition-shadow">
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <h5 className="font-medium">{metric.name}</h5>
-                              <p className="text-sm text-slate-600">{metric.description}</p>
+                              <p className="text-sm text-slate-600 mt-0.5">{metric.description}</p>
                             </div>
                             <Badge variant={percentage > 90 ? "destructive" : "secondary"}>
                               {percentage.toFixed(1)}%
@@ -340,7 +343,7 @@ export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }
                             <Progress 
                               value={percentage}
                               className={cn(
-                                "h-2",
+                                "h-1.5",
                                 percentage > 90 ? "bg-red-100 [&>div]:bg-red-500" :
                                 percentage > 75 ? "bg-yellow-100 [&>div]:bg-yellow-500" :
                                 "bg-blue-100 [&>div]:bg-blue-500"
@@ -349,7 +352,7 @@ export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }
                             
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">
-                                {metric.value.toLocaleString()} / {metric.currentPlanThreshold?.toLocaleString() || '∞'} {metric.unit}
+                                {metric.displayValue || metric.value.toLocaleString()} / {metric.displayLimit || metric.currentPlanThreshold?.toLocaleString() || '∞'} {metric.unit}
                               </span>
                               {percentage > 90 && (
                                 <span className="text-red-600 flex items-center gap-1">
@@ -359,7 +362,7 @@ export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }
                               )}
                             </div>
                           </div>
-                        </div>
+                        </Card>
                       )
                     })}
                   </div>
