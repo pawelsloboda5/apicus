@@ -69,20 +69,6 @@ export function StackBuilder({
   const [isLoading, setIsLoading] = useState(false)
   const [simulatedMetrics, setSimulatedMetrics] = useState<Record<string, number>>({})
 
-  // Calculate all metrics for selected services
-  const allMetrics = useMemo(() => {
-    return selectedServices.flatMap(service => {
-      const planState = servicePlans.find(sp => sp.serviceId === service._id)
-      if (!planState) return []
-      
-      const currentPlan = service.enhanced_data.plans[planState.planIndex]
-      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
-      const priorPlan = service.enhanced_data.plans[planState.planIndex - 1]
-      
-      return extractMetricsFromPlan(service, currentPlan, nextPlan, priorPlan)
-    })
-  }, [selectedServices, servicePlans])
-
   useEffect(() => {
     const currentServiceIds = servicePlans.map(sp => sp.serviceId)
     const newServices = selectedServices.filter(s => !currentServiceIds.includes(s._id))

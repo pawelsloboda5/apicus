@@ -43,7 +43,7 @@ interface UsageStatusProps {
 export function UsageStatus({ 
   services, 
   servicePlans,
-  simulatedMetrics = {},
+  simulatedMetrics: _simulatedMetrics = {},
   className 
 }: UsageStatusProps) {
   // Process services to get usage summaries
