@@ -189,6 +189,11 @@ function getFeatureIcon(featureName: string): JSX.Element {
   return <Box className="h-4 w-4" />
 }
 
+// Add utility function at the top
+const isValidArray = (arr: any): arr is any[] => {
+  return Array.isArray(arr) && arr.length > 0
+}
+
 export function ServiceDetails({ 
   service, 
   selectedPlanIndex,
@@ -861,7 +866,8 @@ export function ServiceDetails({
                   </div>
                 )}
 
-                {service.enhanced_data.competitive_positioning.competitive_advantages && (
+                {service.enhanced_data.competitive_positioning?.competitive_advantages && 
+                  isValidArray(service.enhanced_data.competitive_positioning.competitive_advantages) && (
                   <div>
                     <div className="text-sm font-medium mb-2 text-green-700">Advantages</div>
                     <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
@@ -872,7 +878,8 @@ export function ServiceDetails({
                   </div>
                 )}
 
-                {service.enhanced_data.competitive_positioning.competitive_disadvantages && (
+                {service.enhanced_data.competitive_positioning?.competitive_disadvantages && 
+                  isValidArray(service.enhanced_data.competitive_positioning.competitive_disadvantages) && (
                   <div>
                     <div className="text-sm font-medium mb-2 text-red-700">Disadvantages</div>
                     <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">

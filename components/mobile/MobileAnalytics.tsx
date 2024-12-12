@@ -37,6 +37,24 @@ interface MobileAnalyticsProps {
   }>
 }
 
+const hasCompetitiveData = (service: Service): boolean => {
+  return !!service.enhanced_data?.competitive_positioning
+}
+
+const hasCompetitiveAdvantages = (service: Service): boolean => {
+  return hasCompetitiveData(service) && 
+    Array.isArray(service.enhanced_data.competitive_positioning?.competitive_advantages)
+}
+
+const hasCompetitiveDisadvantages = (service: Service): boolean => {
+  return hasCompetitiveData(service) && 
+    Array.isArray(service.enhanced_data.competitive_positioning?.competitive_disadvantages)
+}
+
+const isValidArray = (arr: any): arr is any[] => {
+  return Array.isArray(arr) && arr.length > 0
+}
+
 export function MobileAnalytics({ services, servicePlans }: MobileAnalyticsProps) {
   // Calculate total costs and features
   const totalMonthlyCost = services.reduce((sum, service) => {
@@ -322,7 +340,8 @@ export function MobileAnalytics({ services, servicePlans }: MobileAnalyticsProps
                   )}
 
                   {/* Advantages */}
-                  {service.enhanced_data.competitive_positioning?.competitive_advantages && (
+                  {hasCompetitiveAdvantages(service) && 
+                    isValidArray(service.enhanced_data.competitive_positioning?.competitive_advantages) && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <ThumbsUp className="h-4 w-4 text-green-500" />
@@ -340,7 +359,7 @@ export function MobileAnalytics({ services, servicePlans }: MobileAnalyticsProps
                   )}
 
                   {/* Disadvantages */}
-                  {service.enhanced_data.competitive_positioning?.competitive_disadvantages && (
+                  {hasCompetitiveDisadvantages(service) && service.enhanced_data.competitive_positioning?.competitive_disadvantages && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <ThumbsDown className="h-4 w-4 text-red-500" />
