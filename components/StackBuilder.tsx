@@ -63,9 +63,7 @@ export function StackBuilder({
   setServicePlans 
 }: StackBuilderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<SelectedService | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [simulatedMetrics, setSimulatedMetrics] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -113,43 +111,9 @@ export function StackBuilder({
     return total + (price ?? 0)
   }, 0)
 
-  const filteredServices = useMemo(() => {
-    const validServices = availableServices.filter(service => {
-      // Validate service structure
-      return service?.metadata?.service_name && 
-             service?.enhanced_data?.plans &&
-             Array.isArray(service.enhanced_data.plans);
-    });
-
-    const filtered = validServices.filter(service => 
-      service.metadata.service_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !selectedServices.some(s => s._id === service._id)
-    );
-
-    if (filtered.length < 5) {
-      const remainingServices = validServices.filter(service => 
-        !filtered.some(f => f._id === service._id) &&
-        !selectedServices.some(s => s._id === service._id)
-      );
-      
-      const randomServices = remainingServices
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 5 - filtered.length);
-
-      return [...filtered, ...randomServices];
-    }
-
-    return filtered.slice(0, 5);
-  }, [availableServices, searchQuery, selectedServices]);
-
-  const handleAddService = async (service: Service) => {
-    setIsLoading(true)
-    try {
-      onServicesChange([...selectedServices, service])
-      setIsDialogOpen(false)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleAddService = (service: Service) => {
+    const newServices = [...selectedServices, service]
+    onServicesChange(newServices)
   }
 
   const handleRemoveService = (serviceId: string) => {

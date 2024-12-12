@@ -55,7 +55,7 @@ export function ServiceStackBuilder({
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode] = useState<'grid' | 'list'>('grid')
   const [screenSize] = useState(getScreenSize())
 
   // Screen size detection
