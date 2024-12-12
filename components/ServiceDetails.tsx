@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { extractServiceMetrics } from "@/utils/metrics"
+import { StackAnalytics } from "@/components/StackAnalytics"
+import { ServiceAnalytics } from "@/components/ServiceAnalytics"
 
 interface ServiceDetailsProps {
   service: Service
@@ -261,11 +263,12 @@ export function ServiceDetails({
 
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="usage">Usage</TabsTrigger>
         <TabsTrigger value="features">Features</TabsTrigger>
         <TabsTrigger value="limits">Limits</TabsTrigger>
+        <TabsTrigger value="analytics">Analytics</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -350,7 +353,7 @@ export function ServiceDetails({
           <div className="grid gap-4">
             <h4 className="font-medium">Key Metrics</h4>
             <div className="grid gap-4 sm:grid-cols-2">
-              {metrics.slice(0, 4).map(metric => (
+              {usageMetrics.slice(0, 4).map(metric => (
                 <div key={metric.id} 
                   className="bg-white/50 backdrop-blur-sm rounded-lg p-4 hover:bg-white/60 transition-all"
                 >
@@ -370,7 +373,7 @@ export function ServiceDetails({
                     <div>
                       <div className="font-medium">{metric.name}</div>
                       <div className="text-sm text-slate-500">
-                        {metric.value} / {metric.currentPlanThreshold || '∞'} {metric.unit}
+                        {metric.value.toLocaleString()} / {metric.currentPlanThreshold?.toLocaleString() || '∞'} {metric.unit}
                       </div>
                     </div>
                   </div>
@@ -479,38 +482,35 @@ export function ServiceDetails({
         <div className="space-y-6">
           {/* Resource Limits */}
           <div className="grid gap-6">
-            {/* Users */}
             {currentPlan.limits?.users && (
-              <Card className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-100">
-                      <Users className="h-5 w-5 text-blue-700" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">User Limits</h4>
-                      <p className="text-sm text-slate-500">
-                        {currentPlan.limits.users.description || "Manage your team size"}
-                      </p>
+              <div className="bg-white/50 backdrop-blur-sm rounded-lg p-6 hover:bg-white/60 transition-all">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-blue-100/50">
+                    <Users className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">User Limits</h4>
+                    <p className="text-sm text-slate-600">
+                      {currentPlan.limits.users.description || "Manage your team size"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="bg-slate-50/50 rounded-lg p-4">
+                    <div className="text-sm text-slate-600">Minimum Users</div>
+                    <div className="text-lg font-medium">
+                      {currentPlan.limits.users.min || "No minimum"}
                     </div>
                   </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="p-4 rounded-lg bg-slate-50">
-                      <div className="text-sm text-slate-600">Minimum Users</div>
-                      <div className="text-lg font-medium">
-                        {currentPlan.limits.users.min || "No minimum"}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-slate-50">
-                      <div className="text-sm text-slate-600">Maximum Users</div>
-                      <div className="text-lg font-medium">
-                        {currentPlan.limits.users.max || "Unlimited"}
-                      </div>
+                  <div className="bg-slate-50/50 rounded-lg p-4">
+                    <div className="text-sm text-slate-600">Maximum Users</div>
+                    <div className="text-lg font-medium">
+                      {currentPlan.limits.users.max || "Unlimited"}
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Storage */}
@@ -614,6 +614,25 @@ export function ServiceDetails({
               </Card>
             )}
           </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="analytics">
+        <div className="space-y-6">
+          <ServiceAnalytics 
+            service={service}
+            selectedPlanIndex={selectedPlanIndex}
+            simulatedValues={{
+              ...Object.entries(localSimulatedValues).reduce((acc, [key, value]) => ({
+                ...acc,
+                [`${service._id}-${key.split('-')[1] || key}`]: value
+              }), {}),
+              ...Object.entries(simulatedValues).reduce((acc, [key, value]) => ({
+                ...acc,
+                [`${service._id}-${key.split('-')[1] || key}`]: value
+              }), {})
+            }}
+          />
         </div>
       </TabsContent>
     </Tabs>

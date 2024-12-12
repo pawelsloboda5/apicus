@@ -31,6 +31,8 @@ import {
   Legend
 } from 'recharts'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { useMemo } from "react"
+import { extractServiceMetrics} from "@/utils/metrics"
 
 interface StackAnalyticsProps {
   services: Service[]
@@ -38,6 +40,7 @@ interface StackAnalyticsProps {
     serviceId: string
     planIndex: number
   }>
+  simulatedMetrics?: Record<string, number>
 }
 
 interface CostBreakdown {
@@ -74,9 +77,9 @@ const COLORS = {
   other: '#6b7280'
 }
 
-export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) {
+export function StackAnalytics({ services, servicePlans, simulatedMetrics = {} }: StackAnalyticsProps) {
   // Calculate detailed cost breakdown for each service
-  const costBreakdowns = services.map<CostBreakdown>(service => {
+  const costBreakdowns = useMemo(() => services.map<CostBreakdown>(service => {
     const planState = servicePlans.find(sp => sp.serviceId === service._id)
     if (!planState) return {
       serviceName: service.metadata.service_name,
@@ -88,45 +91,42 @@ export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) 
 
     const currentPlan = service.enhanced_data.plans[planState.planIndex]
     const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
-    const metrics = extractMetricsFromPlan(service, currentPlan, nextPlan)
+    const metrics = extractServiceMetrics(service, currentPlan, nextPlan)
     
     const baseCost = currentPlan.pricing?.monthly?.base_price || 0
     
-    const usageItems = metrics
-      .filter(m => m.costPerUnit && m.value > 0)
-      .map(m => ({
-        name: m.name,
-        cost: m.value * (m.costPerUnit || 0),
-        unit: m.unit || 'units',
-        quantity: m.value,
-        rate: m.costPerUnit || 0
-      }))
-    
-    const overageItems = metrics
+    // Apply simulated values
+    const updatedMetrics = metrics.map(metric => ({
+      ...metric,
+      value: simulatedMetrics[`${service._id}-${metric.id}`] ?? metric.value
+    }))
+
+    // Calculate overages for exceeded metrics
+    const overageItems = updatedMetrics
       .filter(m => m.currentPlanThreshold && m.value > m.currentPlanThreshold)
       .map(m => ({
         name: m.name,
-        cost: Math.max(0, m.value - (m.currentPlanThreshold || 0)) * (m.costPerUnit || 0),
+        cost: nextPlan ? nextPlan.pricing?.monthly?.base_price - baseCost : 0,
         exceeded: m.value - (m.currentPlanThreshold || 0),
         limit: m.currentPlanThreshold || 0,
         unit: m.unit || 'units'
       }))
 
-    const usageCost = usageItems.reduce((sum, item) => sum + item.cost, 0)
-    const overageCost = overageItems.reduce((sum, item) => sum + item.cost, 0)
+    const overageCost = overageItems.length > 0 ? 
+      (nextPlan?.pricing?.monthly?.base_price || 0) - baseCost : 0
 
     return {
       serviceName: service.metadata.service_name,
       baseCost,
-      usageCost,
+      usageCost: 0,
       overageCost,
-      total: baseCost + usageCost + overageCost,
+      total: baseCost + overageCost,
       details: {
-        usageItems,
+        usageItems: [],
         overageItems
       }
     }
-  })
+  }), [services, servicePlans, simulatedMetrics])
 
   const totalCosts = {
     base: costBreakdowns.reduce((sum, s) => sum + s.baseCost, 0),
@@ -143,14 +143,22 @@ export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) 
   ]
 
   // Group metrics by type
-  const allMetrics = services.flatMap(service => {
-    const planState = servicePlans.find(sp => sp.serviceId === service._id)
-    if (!planState) return []
+  const allMetrics = useMemo(() => {
+    return services.flatMap(service => {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      if (!planState) return []
 
-    const currentPlan = service.enhanced_data.plans[planState.planIndex]
-    const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
-    return extractMetricsFromPlan(service, currentPlan, nextPlan)
-  })
+      const currentPlan = service.enhanced_data.plans[planState.planIndex]
+      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+      const metrics = extractMetricsFromPlan(service, currentPlan, nextPlan)
+      
+      // Apply simulated values
+      return metrics.map(metric => ({
+        ...metric,
+        value: simulatedMetrics[metric.id] ?? metric.value
+      }))
+    })
+  }, [services, servicePlans, simulatedMetrics])
 
   const metricsByType = allMetrics.reduce<Record<string, ServiceMetric[]>>(
     (acc, metric) => {
@@ -176,13 +184,13 @@ export function StackAnalytics({ services, servicePlans }: StackAnalyticsProps) 
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold">
-                ${totalCosts.total.toFixed(2)}
+                ${Number.isFinite(totalCosts.total) ? totalCosts.total.toFixed(2) : '∞'}
                 <span className="text-sm font-normal text-slate-500">/mo</span>
               </div>
               {totalCosts.overage > 0 && (
                 <div className="text-sm text-red-600 flex items-center gap-1 justify-end">
                   <AlertTriangle className="h-4 w-4" />
-                  ${totalCosts.overage.toFixed(2)} in overage charges
+                  ${Number.isFinite(totalCosts.overage) ? totalCosts.overage.toFixed(2) : '∞'} in overage charges
                 </div>
               )}
             </div>

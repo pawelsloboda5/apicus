@@ -21,10 +21,9 @@ import { Service } from "@/types/service"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { MetricCard } from "@/components/analytics/MetricCard"
-import { UsageBreakdown } from "@/components/analytics/UsageBreakdown"
-import { UsageStatus } from "@/components/analytics/UsageStatus"
 import { extractMetricsFromPlan } from "./analytics/utils"
 import { ServiceMetric } from "@/types/analytics"
+import { extractServiceMetrics, calculateOverageCost } from "@/utils/metrics"
 
 interface SelectedService extends Service {
   selectedPlanIndex: number
@@ -211,13 +210,48 @@ export function StackBuilder({
     }))
   }
 
+  // Calculate total costs including overages
+  const totalCosts = useMemo(() => {
+    return selectedServices.reduce((acc, service) => {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      if (!planState) return acc
+
+      const currentPlan = service.enhanced_data.plans[planState.planIndex]
+      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+      const metrics = extractServiceMetrics(service, currentPlan, nextPlan)
+      
+      const baseCost = currentPlan.pricing?.monthly?.base_price || 0
+      
+      // Apply simulated values
+      const updatedMetrics = metrics.map(metric => ({
+        ...metric,
+        value: simulatedMetrics[`${service._id}-${metric.id}`] ?? metric.value
+      }))
+
+      // Check if any metric exceeds its limit
+      const hasExceededMetrics = updatedMetrics.some(metric => 
+        metric.currentPlanThreshold && metric.value > metric.currentPlanThreshold
+      )
+
+      // Calculate overage as difference to next tier if limits exceeded
+      const overageCost = hasExceededMetrics && nextPlan ? 
+        nextPlan.pricing?.monthly?.base_price - baseCost : 0
+
+      return {
+        base: acc.base + baseCost,
+        overage: acc.overage + overageCost,
+        total: acc.total + baseCost + overageCost
+      }
+    }, { base: 0, overage: 0, total: 0 })
+  }, [selectedServices, servicePlans, simulatedMetrics])
+
   return (
     <TooltipProvider>
       <div className="space-y-8">
         {/* Main Grid Layout */}
         <div className="grid gap-8 lg:grid-cols-12">
           {/* Left Column - Stack Management */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-12 space-y-6">
             {/* Enhanced Stack Summary Card */}
             <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200">
               <CardHeader className="pb-4">
@@ -241,10 +275,11 @@ export function StackBuilder({
                   <MetricCard
                     icon={<CircleDollarSign className="h-5 w-5" />}
                     label="Total Cost"
-                    value={`$${totalMonthlyCost}`}
+                    value={`$${totalCosts.total.toFixed(2)}`}
+                    subValue={totalCosts.overage > 0 ? `Including $${totalCosts.overage.toFixed(2)} in overages` : undefined}
                     trend={{
-                      value: 12,
-                      label: "vs. basic tier"
+                      value: ((totalCosts.total - totalCosts.base) / totalCosts.base) * 100,
+                      label: "vs. base cost"
                     }}
                     className="bg-gradient-to-br from-blue-50 to-white"
                   />
@@ -318,7 +353,7 @@ export function StackBuilder({
               </CardContent>
             </Card>
 
-            {/* Service Details Section with Improved Layout */}
+            {/* Service Details Section */}
             {selectedServices.length > 0 && selectedServiceForDetails && (
               <Card className="border-slate-200">
                 <CardHeader className="pb-4">
@@ -343,119 +378,6 @@ export function StackBuilder({
               </Card>
             )}
           </div>
-
-          {/* Right Column - Usage Analytics and Insights */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Usage Status Overview */}
-            <UsageStatus 
-              services={selectedServices}
-              servicePlans={servicePlans}
-              className="bg-gradient-to-br from-slate-50 to-white"
-            />
-
-            {/* Usage Breakdown */}
-            <Card className="border-slate-200">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Usage Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <UsageBreakdown 
-                  service={selectedServices[0]}
-                  metrics={extractMetricsFromPlan(
-                    selectedServices[0],
-                    selectedServices[0].enhanced_data.plans[servicePlans[0]?.planIndex || 0]
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Cost Projections */}
-            <Card className="border-slate-200">
-              <CardHeader className="pb-4">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg">Cost Summary</CardTitle>
-                  <Badge variant="outline" className="font-mono">
-                    ${totalMonthlyCost}/mo
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {selectedServices.map(service => {
-                    const price = getServicePrice(service)
-                    const planState = servicePlans.find(sp => sp.serviceId === service._id)
-                    if (!planState) return null
-
-                    const currentPlan = service.enhanced_data.plans[planState.planIndex]
-                    const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
-                    const prevPlan = service.enhanced_data.plans[planState.planIndex - 1]
-                    
-                    const usageMetrics = extractMetricsFromPlan(
-                      service, 
-                      currentPlan,
-                      nextPlan,
-                      prevPlan
-                    )
-                    
-                    const hasUsageCharges = usageMetrics.some(m => m.costPerUnit)
-                    const estimatedUsageCost = usageMetrics.reduce((total, metric) => 
-                      total + (metric.value * (metric.costPerUnit || 0)), 0
-                    )
-                    
-                    return (
-                      <div key={service._id} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-600">{service.metadata.service_name}</span>
-                          <div className="text-right">
-                            <span className="text-sm font-medium">${price}</span>
-                            {hasUsageCharges && (
-                              <div className="text-xs text-slate-500">
-                                +${estimatedUsageCost.toFixed(2)} usage
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {hasUsageCharges && (
-                          <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            Variable costs based on usage
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="flex justify-between items-center font-medium">
-                    <span>Total Monthly Cost</span>
-                    <span className="text-lg">${totalMonthlyCost}</span>
-                  </div>
-                  
-                  {/* Projected Costs Warning */}
-                  {selectedServices.some(service => {
-                    const planState = servicePlans.find(sp => sp.serviceId === service._id)
-                    if (!planState) return false
-
-                    const currentPlan = service.enhanced_data.plans[planState.planIndex]
-                    const metrics = extractMetricsFromPlan(service, currentPlan)
-                    
-                    return metrics.some(m => 
-                      m.currentPlanThreshold && 
-                      (m.value / m.currentPlanThreshold) > 0.9
-                    )
-                  }) && (
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                      <div className="flex items-center gap-2 text-sm text-yellow-800">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span>Some services may incur additional costs due to usage limits</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Enhanced Service Selection Dialog */}
@@ -468,6 +390,12 @@ export function StackBuilder({
           onServiceAdd={handleAddService}
           getLowestPrice={getLowestPrice}
           isLoading={isLoading}
+        />
+
+        <StackAnalytics
+          services={selectedServices}
+          servicePlans={servicePlans}
+          simulatedMetrics={simulatedMetrics}
         />
       </div>
     </TooltipProvider>

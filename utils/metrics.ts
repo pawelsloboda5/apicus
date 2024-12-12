@@ -67,17 +67,17 @@ export function extractServiceMetrics(service: Service, currentPlan: any, nextPl
       }))
     }
 
-    // Quota limits
+    // API Quota
     if (currentPlan.limits.api.quota) {
       metrics.push(createMetric({
         id: `${service._id}-api-quota`,
         name: "API Quota",
         value: 0,
         unit: `requests/${currentPlan.limits.api.quota.period || "month"}`,
-        type: METRIC_TYPES.QUOTA,
+        type: METRIC_TYPES.API,
         currentLimit: currentPlan.limits.api.quota.amount,
         nextLimit: nextPlan?.limits?.api?.quota?.amount,
-        description: currentPlan.limits.api.quota.description || "API request quota",
+        description: currentPlan.limits.api.quota.description || "Monthly API request quota",
         period: currentPlan.limits.api.quota.period,
         service,
         currentPlan
@@ -89,19 +89,31 @@ export function extractServiceMetrics(service: Service, currentPlan: any, nextPl
   if (currentPlan.limits.other_limits) {
     currentPlan.limits.other_limits.forEach((limit: any) => {
       const { value, unit, period } = parseLimit(limit.value)
-      
+      const metricId = limit.name.toLowerCase().replace(/\s+/g, '-')
+      const isAiSurveyMetric = metricId.includes('ai-survey')
+
+      // Find the corresponding limit in the next plan
+      const nextLimit = nextPlan?.limits?.other_limits?.find(
+        (l: any) => l.name === limit.name
+      )
+      const nextLimitValue = nextLimit ? parseLimit(nextLimit.value).value : null
+      const currentLimitValue = value === 'unlimited' ? null : parseFloat(value.toString())
+      const nextLimitNumValue = nextLimitValue === 'unlimited' ? null : parseFloat(nextLimitValue?.toString() || '0')
+
       metrics.push(createMetric({
-        id: `${service._id}-${limit.name.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `${service._id}-${metricId}`,
         name: limit.name,
-        value: value === 'unlimited' ? 0 : value,
-        unit: limit.unit || unit,
+        value: 0, // Start at 0 for usage metrics
+        unit: isAiSurveyMetric ? 'requests/year' : (limit.unit || unit || 'units'),
         type: METRIC_TYPES.OTHER,
-        currentLimit: value === 'unlimited' ? null : value,
-        nextLimit: null, // Parse from nextPlan if needed
+        currentLimit: currentLimitValue,
+        nextLimit: nextLimitNumValue,
         description: limit.description,
-        period,
+        period: isAiSurveyMetric ? 'year' : period,
         service,
-        currentPlan
+        currentPlan,
+        displayValue: isAiSurveyMetric ? formatMetricValue(currentLimitValue || 0) : undefined,
+        displayLimit: isAiSurveyMetric ? formatMetricValue(nextLimitNumValue || 0) : undefined
       }))
     })
   }
@@ -121,6 +133,8 @@ interface MetricParams {
   period?: string
   service: Service
   currentPlan: any
+  displayValue?: string
+  displayLimit?: string
 }
 
 function createMetric({
@@ -134,12 +148,22 @@ function createMetric({
   description,
   period,
   service,
-  currentPlan
+  currentPlan,
+  displayValue,
+  displayLimit
 }: MetricParams): UsageMetric {
   const isUnlimited = !currentLimit
   const nextPlanIndex = service.enhanced_data.plans.findIndex(p => p.name === currentPlan.name) + 1
   const nextPlan = service.enhanced_data.plans[nextPlanIndex]
+  const currentPrice = currentPlan.pricing?.monthly?.base_price || 0
+  const nextPrice = nextPlan?.pricing?.monthly?.base_price || 0
   
+  // Calculate the difference between tiers safely
+  const tierDifference = (nextLimit ?? currentLimit ?? 0) - (currentLimit ?? 0)
+  const overageRate = nextPlan && tierDifference > 0 ? 
+    (nextPrice - currentPrice) / tierDifference : 
+    0
+
   return {
     id,
     name,
@@ -147,7 +171,7 @@ function createMetric({
     unit,
     type,
     currentPlanThreshold: currentLimit,
-    basePrice: currentPlan.pricing?.monthly?.base_price || 0,
+    basePrice: currentPrice,
     serviceName: service.metadata.service_name,
     planName: currentPlan.name,
     description,
@@ -156,52 +180,68 @@ function createMetric({
     nextPlan: nextPlan ? {
       name: nextPlan.name,
       limit: nextLimit,
-      price: nextPlan.pricing?.monthly?.base_price || 0
+      price: nextPrice
     } : undefined,
     costInfo: {
-      basePrice: currentPlan.pricing?.monthly?.base_price || 0,
-      includedUnits: currentLimit || 0,
-      overageRate: nextPlan ? 
-        (nextPlan.pricing?.monthly?.base_price - currentPlan.pricing?.monthly?.base_price) / 
-        (nextLimit! - currentLimit!) : 
-        0,
+      basePrice: currentPrice,
+      includedUnits: currentLimit ?? 0,
+      overageRate,
       billingPeriod: 'monthly'
     },
-    usageInfo: {
-      current: value,
-      limit: currentLimit,
-      percentage: currentLimit ? (value / currentLimit) * 100 : 0,
-      period
-    }
+    displayValue,
+    displayLimit
   }
 }
 
-function parseLimit(value: string): { value: number | 'unlimited', unit?: string, period?: string } {
-  if (value.toLowerCase() === 'unlimited') {
+function parseLimit(value: string | number): { value: number | 'unlimited', unit?: string, period?: string } {
+  if (!value || value.toString().toLowerCase() === 'unlimited') {
     return { value: 'unlimited' }
   }
 
-  const match = value.match(/^(\d+(?:\.\d+)?)\s*([^/\s]+)?(?:\/(\w+))?$/)
+  const strValue = value.toString()
+  const match = strValue.match(/^(\d+(?:\.\d+)?)\s*([^/\s]+)?(?:\/(\w+))?$/)
+  
   if (match) {
+    const numValue = parseFloat(match[1])
     return {
-      value: parseFloat(match[1]),
+      value: isNaN(numValue) ? 0 : numValue,
       unit: match[2],
       period: match[3]
     }
   }
 
-  return { value: 0 }
-} 
+  const numValue = parseFloat(strValue)
+  return {
+    value: isNaN(numValue) ? 0 : numValue
+  }
+}
 
 export function calculateOverageCost(metric: UsageMetric): number {
-  if (!metric.currentPlanThreshold || !metric.nextPlan) return 0
+  if (!metric.currentPlanThreshold || !metric.nextPlan?.limit || !metric.nextPlan.price) return 0
   
   const overageUnits = Math.max(0, metric.value - metric.currentPlanThreshold)
   
-  // If exceeding current tier, charge the difference to next plan
+  // If exceeding current tier
   if (overageUnits > 0) {
-    return metric.nextPlan.price - metric.basePrice
+    const nextTierPrice = metric.nextPlan.price
+    
+    // If value exceeds next tier's limit
+    if (metric.value > metric.nextPlan.limit) {
+      // Calculate how many tier jumps are needed
+      const tierMultiplier = Math.ceil(metric.value / metric.nextPlan.limit)
+      return Math.min(nextTierPrice * tierMultiplier, 9999)
+    }
+    
+    // Always return full next tier price when any limit is exceeded
+    return nextTierPrice
   }
   
   return 0
+}
+
+function formatMetricValue(value: number): string {
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(0)}k`
+  }
+  return value.toString()
 } 

@@ -13,8 +13,7 @@ import {
 interface UsageBreakdownProps {
   service: Service
   metrics: ServiceMetric[]
-  simulatedValues?: Record<string, number>
-  className?: string
+  simulatedMetrics?: Record<string, number>
 }
 
 interface MetricDisplay {
@@ -30,11 +29,20 @@ interface MetricDisplay {
   }
 }
 
-export function UsageBreakdown({ service, metrics = [], simulatedValues = {}, className }: UsageBreakdownProps) {
+export function UsageBreakdown({ 
+  service, 
+  metrics,
+  simulatedMetrics = {} 
+}: UsageBreakdownProps) {
+  const updatedMetrics = metrics.map(metric => ({
+    ...metric,
+    value: simulatedMetrics[metric.id] ?? metric.value
+  }))
+
   // Handle case when metrics is undefined or empty
-  if (!metrics || metrics.length === 0) {
+  if (!updatedMetrics || updatedMetrics.length === 0) {
     return (
-      <Card className={cn("p-4", className)}>
+      <Card className={cn("p-4")}>
         <div className="text-center text-sm text-slate-500">
           No usage metrics available
         </div>
@@ -42,8 +50,8 @@ export function UsageBreakdown({ service, metrics = [], simulatedValues = {}, cl
     )
   }
 
-  const processedMetrics = metrics.map<MetricDisplay>(metric => {
-    const currentValue = simulatedValues?.[metric.id] || metric.value
+  const processedMetrics = updatedMetrics.map<MetricDisplay>(metric => {
+    const currentValue = simulatedMetrics?.[metric.id] || metric.value
     const percentage = metric.currentPlanThreshold 
       ? (currentValue / metric.currentPlanThreshold) * 100 
       : 0
@@ -70,7 +78,7 @@ export function UsageBreakdown({ service, metrics = [], simulatedValues = {}, cl
   })
 
   return (
-    <Card className={cn("p-4", className)}>
+    <Card className={cn("p-4")}>
       <Tabs defaultValue="overview">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -100,8 +108,8 @@ export function UsageBreakdown({ service, metrics = [], simulatedValues = {}, cl
                       </div>
                     )}
                     <span className="text-sm font-medium">
-                      {metric.value.toLocaleString()}
-                      {metric.limit ? ` / ${metric.limit.toLocaleString()}` : ' (∞)'}
+                      {metric.displayValue || metric.value.toLocaleString()}
+                      {metric.limit ? ` / ${metric.displayLimit || metric.limit.toLocaleString()}` : ' (∞)'}
                     </span>
                   </div>
                 </div>

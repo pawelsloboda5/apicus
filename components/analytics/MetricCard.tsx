@@ -29,7 +29,8 @@ const metricStyles = cva(
 interface MetricCardProps {
   icon: React.ReactNode
   label: string
-  value: string | number
+  value: string
+  subValue?: string
   trend?: {
     value: number
     label: string
@@ -43,12 +44,17 @@ export function MetricCard({
   icon,
   label,
   value,
+  subValue,
   trend,
   percentage,
   size,
   className,
 }: MetricCardProps) {
-  const trendType = trend?.value > 0 ? "positive" : trend?.value < 0 ? "negative" : "neutral"
+  const trendType = trend?.value !== undefined 
+    ? trend.value > 0 ? "positive" 
+    : trend.value < 0 ? "negative" 
+    : "neutral"
+    : "neutral"
 
   return (
     <div className={cn(metricStyles({ trend: trendType, size }), className)}>

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { ServiceMetric } from "@/types/analytics"
 import { extractMetricsFromPlan } from "./utils"
 import { Service } from "@/types/service"
+import { useMemo } from "react"
 
 // Extend the ServiceMetric type locally
 interface ExtendedServiceMetric extends ServiceMetric {
@@ -36,10 +37,33 @@ interface UsageStatusProps {
     serviceId: string
     planIndex: number
   }>
+  simulatedMetrics?: Record<string, number>
   className?: string
 }
 
-export function UsageStatus({ services, servicePlans, className }: UsageStatusProps) {
+export function UsageStatus({ 
+  services, 
+  servicePlans,
+  simulatedMetrics = {},
+  className 
+}: UsageStatusProps) {
+  const metrics = useMemo(() => 
+    services.flatMap(service => {
+      const planState = servicePlans.find(sp => sp.serviceId === service._id)
+      if (!planState) return []
+
+      const currentPlan = service.enhanced_data.plans[planState.planIndex]
+      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
+      const metrics = extractMetricsFromPlan(service, currentPlan) as ExtendedServiceMetric[]
+      
+      return metrics.map(metric => ({
+        ...metric,
+        value: simulatedMetrics[metric.id] ?? metric.value
+      }))
+    }),
+    [services, servicePlans, simulatedMetrics]
+  )
+
   // Process services to get usage summaries
   const serviceSummaries = services.map<ServiceUsageSummary>(service => {
     const planState = servicePlans.find(sp => sp.serviceId === service._id)

@@ -22,6 +22,8 @@ export interface ServiceMetric {
     limit: number | null
     price: number
   }
+  displayValue?: string
+  displayLimit?: string
   displayConditions?: {
     requiresValue?: boolean
     requiresThreshold?: boolean
@@ -79,4 +81,16 @@ export interface ServiceDetailsProps {
   onPlanChange: (index: number) => void
   onMetricChange?: (metricId: string, value: number) => void
   simulatedValues?: Record<string, number>
+}
+
+export interface ServiceAnalyticsProps {
+  service: Service
+  selectedPlanIndex: number
+  simulatedValues: Record<string, number>
+}
+
+export interface AnalyticsMetric extends UsageMetric {
+  percentage: number
+  overageCost: number
+  status: 'normal' | 'warning' | 'critical'
 }
