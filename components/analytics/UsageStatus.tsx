@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { 
-  AlertTriangle, ChevronRight, DollarSign, TrendingUp, 
+  ChevronRight, TrendingUp, 
   Users, Database, Zap, Clock, Server 
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -47,23 +47,6 @@ export function UsageStatus({
   simulatedMetrics = {},
   className 
 }: UsageStatusProps) {
-  const metrics = useMemo(() => 
-    services.flatMap(service => {
-      const planState = servicePlans.find(sp => sp.serviceId === service._id)
-      if (!planState) return []
-
-      const currentPlan = service.enhanced_data.plans[planState.planIndex]
-      const nextPlan = service.enhanced_data.plans[planState.planIndex + 1]
-      const metrics = extractMetricsFromPlan(service, currentPlan) as ExtendedServiceMetric[]
-      
-      return metrics.map(metric => ({
-        ...metric,
-        value: simulatedMetrics[metric.id] ?? metric.value
-      }))
-    }),
-    [services, servicePlans, simulatedMetrics]
-  )
-
   // Process services to get usage summaries
   const serviceSummaries = services.map<ServiceUsageSummary>(service => {
     const planState = servicePlans.find(sp => sp.serviceId === service._id)

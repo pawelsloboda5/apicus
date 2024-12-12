@@ -8,10 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractServiceMetrics } from "@/utils/metrics"
 import { ServiceMetric } from "@/types/analytics"
 import { 
-  AlertTriangle, Users, Database, Zap, Server,
-  BarChart2, Activity, Clock, Globe, Shield,
-  CpuIcon, NetworkIcon, HardDriveIcon, GitBranchIcon,
-  ContainerIcon, CloudIcon, MonitorIcon, CreditCard, TrendingUp, DollarSign
+  AlertTriangle, Activity, Shield,
+  CpuIcon, NetworkIcon, HardDriveIcon,
+  Globe, CreditCard, TrendingUp, DollarSign
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -35,30 +34,6 @@ interface ServiceAnalyticsProps {
   service: Service
   selectedPlanIndex: number
   simulatedValues: Record<string, number>
-}
-
-interface CostBreakdown {
-  serviceName: string
-  baseCost: number
-  usageCost: number
-  overageCost: number
-  total: number
-  details?: {
-    usageItems: Array<{
-      name: string
-      cost: number
-      unit: string
-      quantity: number
-      rate: number
-    }>
-    overageItems: Array<{
-      name: string
-      cost: number
-      exceeded: number
-      limit: number
-      unit: string
-    }>
-  }
 }
 
 const METRIC_CATEGORIES = {
@@ -97,7 +72,6 @@ const METRIC_CATEGORIES = {
 export function ServiceAnalytics({ service, selectedPlanIndex, simulatedValues }: ServiceAnalyticsProps): JSX.Element {
   const currentPlan = service.enhanced_data.plans[selectedPlanIndex]
   const nextPlan = service.enhanced_data.plans[selectedPlanIndex + 1]
-  const priorPlan = service.enhanced_data.plans[selectedPlanIndex - 1]
 
   // Calculate metrics using extractServiceMetrics like StackAnalytics
   const allMetrics = useMemo(() => {

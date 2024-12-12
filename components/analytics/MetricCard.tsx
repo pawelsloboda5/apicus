@@ -1,5 +1,4 @@
 // components/analytics/MetricCard.tsx
-import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { cva } from "class-variance-authority"
 import { motion } from "framer-motion"
@@ -103,6 +102,12 @@ export function MetricCard({
           </motion.div>
         )}
       </div>
+      
+      {subValue && (
+        <div className="mt-1 text-sm text-slate-500">
+          {subValue}
+        </div>
+      )}
     </div>
   )
 }

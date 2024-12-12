@@ -5,35 +5,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Service } from "@/types/service"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { extractMetricsFromPlan } from "./analytics/utils"
-import { UsageProjections } from "./analytics/UsageProjections"
-import { UsageInsightCard } from "./analytics/UsageInsightCard"
-import { ServiceMetric, UsageMetric, ServiceMetricsConfig } from "@/types/analytics"
-import { useState, useEffect, useMemo } from "react"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
+import { useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { 
   Users, Database, Zap, Server, 
-  Clock, AlertCircle, CheckCircle2,
-  CreditCard, TrendingUp, Infinity,
-  HardDrive, Users2, Gamepad2,
-  BarChart3, AlertTriangle,
-  Settings, Shield, GitBranch, Webhook, Box, 
+  AlertCircle, CheckCircle2,
+  CreditCard, TrendingUp,
+  HardDrive, AlertTriangle,
+  Shield, Box, 
   FileText, Mail, MessageSquare, BellRing, 
   Gauge, Cpu, Network, Lock, Key, Search,
-  BarChart4, PieChart, LineChart, Boxes,
-  Fingerprint, Workflow, Share2, Layers,
-  CalendarDays, Info, Building2, Target, Coins, Receipt,
-  Globe
+  BarChart4, LineChart, Share2,
+  Info, Building2, Target, Coins,
+  Globe,
+  Webhook,
+  Workflow
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { extractServiceMetrics } from "@/utils/metrics"
-import { StackAnalytics } from "@/components/StackAnalytics"
 import { ServiceAnalytics } from "@/components/ServiceAnalytics"
+import { UsageMetric } from "@/types/analytics"
 
 interface ServiceDetailsProps {
   service: Service
@@ -53,7 +46,7 @@ interface PlanFeatureCategory {
 }
 
 // Add type guard
-function isValidFeature(feature: any): feature is { name: string; description?: string } {
+function isValidFeature(feature: { name?: string; description?: string }): feature is { name: string; description?: string } {
   return typeof feature === 'object' && feature !== null && typeof feature.name === 'string';
 }
 
@@ -254,43 +247,6 @@ export function ServiceDetails({
       onMetricChange(metricId, value)
     }
   }
-
-  // Group features by category with proper type checking
-  const featureCategories = currentPlan.features.categories?.reduce<PlanFeatureCategory[]>((acc, category) => {
-    if (!category.name || !Array.isArray(category.features)) return acc;
-
-    let icon: JSX.Element;
-    switch (category.name.toLowerCase()) {
-      case 'users':
-        icon = <Users className="h-5 w-5" />;
-        break;
-      case 'storage':
-        icon = <Database className="h-5 w-5" />;
-        break;
-      case 'api':
-        icon = <Zap className="h-5 w-5" />;
-        break;
-      default:
-        icon = <Server className="h-5 w-5" />;
-    }
-
-    // Filter out invalid features
-    const validFeatures = category.features
-      .filter(isValidFeature)
-      .map(feature => ({
-        name: feature.name,
-        description: feature.description
-      }));
-
-    if (validFeatures.length === 0) return acc;
-
-    acc.push({
-      name: category.name,
-      icon,
-      features: validFeatures
-    });
-    return acc;
-  }, []) || [];
 
   return (
     <Tabs defaultValue="overview" className="w-full">

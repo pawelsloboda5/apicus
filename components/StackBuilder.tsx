@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { 
-  Plus, X, DollarSign, Zap, Search, 
-  Clock, Shield, Cloud, Users, Database,
-  TrendingUp, Target, Award, CircleDollarSign,
+  Plus, X, Search, 
+  Users, Database,
+  CircleDollarSign,
   Server, Activity, BarChart2, Box,
-  AlertCircle, AlertTriangle
+  Shield, Zap
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { ServiceDetails } from "./ServiceDetails"
@@ -406,7 +406,7 @@ export function StackBuilder({
 
 function ServiceCard({ service, plan, price, isSelected, onSelect, onRemove }: {
   service: Service
-  plan: any
+  plan: Service['enhanced_data']['plans'][0]
   price: number | null
   isSelected: boolean
   onSelect: () => void

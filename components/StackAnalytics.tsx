@@ -135,13 +135,6 @@ export function StackAnalytics({ services, servicePlans, simulatedMetrics = {} }
     total: costBreakdowns.reduce((sum, s) => sum + s.total, 0)
   }
 
-  // Prepare data for visualizations
-  const costDistributionData = [
-    { name: 'Base Plans', value: totalCosts.base },
-    { name: 'Usage Costs', value: totalCosts.usage },
-    { name: 'Overage Costs', value: totalCosts.overage }
-  ]
-
   // Group metrics by type
   const allMetrics = useMemo(() => {
     return services.flatMap(service => {
@@ -305,7 +298,6 @@ export function StackAnalytics({ services, servicePlans, simulatedMetrics = {} }
           <TabsContent value="overview">
             <div className="space-y-6">
               {Object.entries(metricsByType).map(([type, metrics]) => {
-                const color = COLORS[type as keyof typeof COLORS] || COLORS.other
                 const totalUsage = metrics.reduce((sum, m) => sum + m.value, 0)
                 const totalLimit = metrics.reduce((sum, m) => sum + (m.currentPlanThreshold || 0), 0)
                 const percentage = totalLimit ? (totalUsage / totalLimit) * 100 : 0

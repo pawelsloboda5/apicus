@@ -5,7 +5,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TrendingUp, AlertCircle, DollarSign, Clock } from "lucide-react"
 import { motion } from "framer-motion"
 import { ServiceMetric } from "@/types/analytics"
-import { normalizeMetricValue } from "@/types/metrics"
 
 interface UsageInsightCardProps {
   metric: ServiceMetric

@@ -7,7 +7,7 @@ import { ServiceMetric } from "@/types/analytics"
 import { Service } from "@/types/service"
 import { 
   TrendingUp, TrendingDown, ArrowRight,
-  Clock, AlertTriangle, CheckCircle2 
+  CheckCircle2 
 } from "lucide-react"
 
 interface UsageBreakdownProps {
@@ -30,7 +30,7 @@ interface MetricDisplay {
 }
 
 export function UsageBreakdown({ 
-  service, 
+  _service, 
   metrics,
   simulatedMetrics = {} 
 }: UsageBreakdownProps) {
