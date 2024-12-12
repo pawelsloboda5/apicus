@@ -7,11 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Service } from "@/types/service"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
-  Search, Filter, X, Plus, 
+  Search, X, Plus, 
   Server, Shield, Activity, 
-  Database, Zap, Globe,
+  Database, Zap,
   Users, Box
 } from "lucide-react"
 import {
