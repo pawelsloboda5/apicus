@@ -54,7 +54,7 @@ export function ServiceStackBuilder({
   const [selectedServices, setSelectedServices] = useState<Service[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
+  const [priceRange] = useState<[number, number]>([0, 1000])
   const [viewMode] = useState<'grid' | 'list'>('grid')
   const [screenSize] = useState(getScreenSize())
 

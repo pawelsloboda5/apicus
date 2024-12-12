@@ -38,23 +38,6 @@ interface StackBuilderProps {
   }>>>;
 }
 
-const getLowestPrice = (service: Service) => {
-  try {
-    if (!service?.enhanced_data?.plans?.length) {
-      return 0;
-    }
-    
-    const prices = service.enhanced_data.plans
-      .filter(plan => plan?.pricing?.monthly?.base_price)
-      .map(plan => plan.pricing.monthly.base_price);
-    
-    return prices.length > 0 ? Math.min(...prices) : 0;
-  } catch (error) {
-    console.error('Error calculating lowest price:', error);
-    return 0;
-  }
-};
-
 export function StackBuilder({ 
   availableServices, 
   selectedServices, 
