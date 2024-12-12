@@ -21,16 +21,18 @@ interface MetricDisplay {
   value: number
   limit: number | null
   percentage: number
-  trend: number // percentage change
+  trend: number
   status: 'normal' | 'warning' | 'critical'
   nextTierInfo?: {
     name: string
     limit: number
   }
+  displayValue?: string
+  displayLimit?: string
 }
 
 export function UsageBreakdown({ 
-  _service, 
+  service: _service,
   metrics,
   simulatedMetrics = {} 
 }: UsageBreakdownProps) {
@@ -73,7 +75,9 @@ export function UsageBreakdown({
       nextTierInfo: metric.nextPlan ? {
         name: metric.nextPlan.name,
         limit: metric.nextPlan.limit || 0
-      } : undefined
+      } : undefined,
+      displayValue: metric.displayValue,
+      displayLimit: metric.displayLimit
     }
   })
 
