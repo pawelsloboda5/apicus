@@ -4,7 +4,6 @@
 import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Service } from "@/types/service"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -57,7 +56,7 @@ export function ServiceStackBuilder({
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [screenSize, setScreenSize] = useState(getScreenSize())
+  const [screenSize] = useState(getScreenSize())
 
   // Screen size detection
   function getScreenSize(): keyof typeof ITEMS_PER_PAGE {
@@ -186,7 +185,6 @@ export function ServiceStackBuilder({
                 service={service}
                 onSelect={() => handleServiceSelect(service)}
                 isSelected={selectedServices.some(s => s._id === service._id)}
-                viewMode={viewMode}
               />
             ))}
           </div>
@@ -235,10 +233,9 @@ interface ServiceCardProps {
   service: Service
   onSelect: () => void
   isSelected: boolean
-  viewMode: 'grid' | 'list'
 }
 
-function ServiceCard({ service, onSelect, isSelected, viewMode }: ServiceCardProps) {
+function ServiceCard({ service, onSelect, isSelected }: ServiceCardProps) {
   const lowestPrice = useMemo(() => {
     const prices = service.enhanced_data.plans
       .filter(plan => plan?.pricing?.monthly?.base_price)

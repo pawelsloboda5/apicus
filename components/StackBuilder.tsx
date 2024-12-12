@@ -4,10 +4,9 @@
 import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { 
-  Plus, X, Search, 
+  Plus, X, 
   Server, Shield, Activity, 
   CircleDollarSign, Users, Database, Zap, BarChart2, Box
 } from "lucide-react"
@@ -367,7 +366,6 @@ export function StackBuilder({
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
           onServiceAdd={handleAddService}
-          isLoading={isLoading}
           availableServices={availableServices}
         />
 
@@ -539,13 +537,11 @@ function ServiceSelectionDialog({
   isOpen, 
   onClose, 
   onServiceAdd,
-  isLoading,
   availableServices
 }: {
   isOpen: boolean
   onClose: () => void
   onServiceAdd: (service: Service) => void
-  isLoading?: boolean
   availableServices: Service[]
 }) {
   return (
